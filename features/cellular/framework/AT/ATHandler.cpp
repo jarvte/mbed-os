@@ -314,7 +314,7 @@ void ATHandler::fill_buffer()
     } while ((uint32_t)timer.read_ms() < _at_timeout);
 
     set_error(NSAPI_ERROR_DEVICE_ERROR);
-    tr_error("AT TIMEOUT, scope: %d timeout: %lu", _current_scope, _at_timeout);
+    tr_debug("AT TIMEOUT, scope: %d timeout: %lu", _current_scope, _at_timeout);
 }
 
 int ATHandler::get_char()
@@ -846,7 +846,7 @@ bool ATHandler::consume_to_tag(const char *tag, bool consume_tag)
             match_pos = 0;
         }
     }
-    tr_error("consume_to_tag not found");
+    tr_debug("consume_to_tag not found");
     return false;
 }
 
@@ -862,7 +862,7 @@ bool ATHandler::consume_to_stop_tag()
         return true;
     }
 
-    tr_error("consume_to_stop_tag not found");
+    tr_debug("consume_to_stop_tag not found");
     set_error(NSAPI_ERROR_DEVICE_ERROR);
     return false;
 }
