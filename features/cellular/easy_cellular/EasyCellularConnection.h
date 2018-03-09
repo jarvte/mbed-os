@@ -130,6 +130,7 @@ public:
      */
     void modem_debug_on(bool on);
 
+    void set_is_blocking(bool blocking);
 protected:
 
     /** Provide access to the NetworkStack object
@@ -159,6 +160,7 @@ private:
     rtos::Semaphore _cellularSemaphore;
     CellularConnectionFSM _cellularConnectionFSM;
     nsapi_error_t _credentials_err;
+    Callback<void(nsapi_event_t, intptr_t)> _status_cb;
 };
 
 } // namespace
