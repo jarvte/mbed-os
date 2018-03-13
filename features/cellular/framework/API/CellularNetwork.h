@@ -209,6 +209,8 @@ public:
         NWModeManualAutomatic   // if manual fails, fallback to automatic
     };
 
+    lisää gettter rat
+
     /** Request registering to network.
      *
      *  @param plmn     format is in numeric format or 0 for automatic network registration
