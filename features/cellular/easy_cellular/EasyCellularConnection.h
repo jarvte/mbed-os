@@ -130,7 +130,6 @@ public:
      */
     void modem_debug_on(bool on);
 
-    void set_is_blocking(bool blocking);
 protected:
 
     /** Provide access to the NetworkStack object
