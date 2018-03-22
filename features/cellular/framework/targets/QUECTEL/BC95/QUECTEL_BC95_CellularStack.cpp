@@ -150,7 +150,8 @@ nsapi_size_or_error_t QUECTEL_BC95_CellularStack::socket_sendto_impl(CellularSoc
     _at.write_bytes((uint8_t*)hexstr, hexlen);
     _at.cmd_stop();
     _at.resp_start();
-    socket->id = _at.read_int();
+    // skip socket id
+    _at.skip_param();
     sent_len = _at.read_int();
     _at.resp_stop();
 
@@ -184,6 +185,7 @@ nsapi_size_or_error_t QUECTEL_BC95_CellularStack::socket_recvfrom_impl(CellularS
     int hexlen = _at.read_string(hexstr, BC95_MAX_PACKET_SIZE*2+1);
     // remaining length
     _at.skip_param();
+    _at.resp_stop();
 
     if (!recv_len || (recv_len == -1) || (_at.get_last_error() != NSAPI_ERROR_OK)) {
         delete hexstr;

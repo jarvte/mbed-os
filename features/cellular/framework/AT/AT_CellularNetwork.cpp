@@ -193,6 +193,7 @@ nsapi_error_t AT_CellularNetwork::connect(const char *apn,
 
 nsapi_error_t AT_CellularNetwork::delete_current_context()
 {
+    tr_info("Delete context %d", _cid);
     _at.clear_error();
     _at.cmd_start("AT+CGDCONT=");
     _at.write_int(_cid);
@@ -472,6 +473,7 @@ bool AT_CellularNetwork::set_new_context(int cid)
         _ip_stack_type = tmp_stack;
         _cid = cid;
         _new_context_set = true;
+        tr_info("New PDP context id %d was created", _cid);
     }
 
     return success;
@@ -479,6 +481,12 @@ bool AT_CellularNetwork::set_new_context(int cid)
 
 bool AT_CellularNetwork::get_context()
 {
+    if (_apn) {
+        tr_debug("APN in use: %s", _apn);
+    } else {
+        tr_debug("NO APN");
+    }
+
     _at.cmd_start("AT+CGDCONT?");
     _at.cmd_stop();
     _at.resp_start("+CGDCONT:");
@@ -500,7 +508,7 @@ bool AT_CellularNetwork::get_context()
         if (pdp_type_len > 0) {
             apn_len = _at.read_string(apn, sizeof(apn) - 1);
             if (apn_len >= 0) {
-                if (_apn && strcmp(apn, _apn) != 0 ) {
+                if (_apn && (strcmp(apn, _apn) != 0) ) {
                     continue;
                 }
                 nsapi_ip_stack_t pdp_stack = string_to_stack_type(pdp_type_from_context);
@@ -626,10 +634,18 @@ nsapi_error_t AT_CellularNetwork::set_registration(const char *plmn)
 
     if (!plmn) {
         tr_debug("Automatic network registration");
-        _at.cmd_start("AT+COPS=0");
+        _at.cmd_start("AT+COPS?");
         _at.cmd_stop();
-        _at.resp_start();
+        _at.resp_start("AT+COPS:");
+        int mode = _at.read_int();
         _at.resp_stop();
+        if (mode != 0) {
+            _at.clear_error();
+            _at.cmd_start("AT+COPS=0");
+            _at.cmd_stop();
+            _at.resp_start();
+            _at.resp_stop();
+        }
     } else {
         tr_debug("Manual network registration to %s", plmn);
         _at.cmd_start("AT+COPS=4,2,");
