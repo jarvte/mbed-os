@@ -171,6 +171,7 @@ nsapi_error_t ATHandler::set_urc_handler(const char *prefix, mbed::Callback<void
         }
 
         oob->prefix = prefix;
+        oob->prefix_len = prefix_len;
         oob->cb = callback;
         oob->next = _oobs;
         _oobs = oob;
@@ -275,6 +276,7 @@ void ATHandler::process_oob()
         timer.start();
         do {
             if (match_urc()) {
+                timer.reset();
                 if (_fileHandle->readable() || (_recv_pos < _recv_len)) {
                     continue;
                 }
@@ -283,8 +285,10 @@ void ATHandler::process_oob()
             // If no match found, look for CRLF and consume everything up to CRLF
             if (mem_str(_recv_buff, _recv_len, CRLF, CRLF_LENGTH)) {
                 consume_to_tag(CRLF, true);
+                timer.reset();
             } else {
                 if (_fileHandle->readable()) {
+                    timer.reset();
                     fill_buffer();
                 } else {
 #ifdef MBED_CONF_RTOS_PRESENT
@@ -292,7 +296,7 @@ void ATHandler::process_oob()
 #endif
                 }
             }
-        } while (timer.read_ms() < 20); // URC's are very short so 20ms should be enough
+        } while (timer.read_ms() < 100); // URC's are very short
     }
     tr_debug("process_oob exit");
 
@@ -313,7 +317,8 @@ void ATHandler::set_filehandle_sigio()
 void ATHandler::reset_buffer()
 {
     tr_debug("%s", __func__);
-    _recv_pos = 0; _recv_len = 0;
+    _recv_pos = 0;
+    _recv_len = 0;
 }
 
 void ATHandler::rewind_buffer()
@@ -604,10 +609,10 @@ bool ATHandler::match_urc()
     rewind_buffer();
     size_t prefix_len = 0;
     for (struct oob_t *oob = _oobs; oob; oob = oob->next) {
-        prefix_len = strlen(oob->prefix);
+        prefix_len = oob->prefix_len;
         if (_recv_len >= prefix_len) {
             if (match(oob->prefix, prefix_len)) {
-                tr_debug("URC! %s", oob->prefix);
+                tr_debug("URC! %s\n", oob->prefix);
                 set_scope(InfoType);
                 if (oob->cb) {
                     oob->cb();

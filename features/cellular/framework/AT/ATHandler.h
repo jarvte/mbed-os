@@ -29,7 +29,8 @@
 #include "Callback.h"
 #include "EventQueue.h"
 
-namespace mbed {
+namespace mbed
+{
 
 class FileHandle;
 
@@ -195,6 +196,7 @@ private:
 
     struct oob_t {
         const char *prefix;
+        int prefix_len;
         mbed::Callback<void()> cb;
         oob_t *next;
     };
@@ -207,7 +209,7 @@ private:
     bool _processing;
     int32_t _ref_count;
 
-        //*************************************
+    //*************************************
 public:
 
     /** Starts the command writing by clearing the last error and writing the given command.
