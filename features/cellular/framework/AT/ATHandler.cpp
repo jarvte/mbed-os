@@ -170,6 +170,7 @@ nsapi_error_t ATHandler::set_urc_handler(const char *prefix, mbed::Callback<void
         }
 
         oob->prefix = prefix;
+        oob->prefix_len = prefix_len;
         oob->cb = callback;
         oob->next = _oobs;
         _oobs = oob;
@@ -274,6 +275,7 @@ void ATHandler::process_oob()
         timer.start();
         do {
             if (match_urc()) {
+                timer.reset();
                 if (_fileHandle->readable() || (_recv_pos < _recv_len)) {
                     continue;
                 }
@@ -282,8 +284,10 @@ void ATHandler::process_oob()
             // If no match found, look for CRLF and consume everything up to CRLF
             if (mem_str(_recv_buff, _recv_len, CRLF, CRLF_LENGTH)) {
                 consume_to_tag(CRLF, true);
+                timer.reset();
             } else {
                 if (_fileHandle->readable()) {
+                    timer.reset();
                     fill_buffer();
                 } else {
 #ifdef MBED_CONF_RTOS_PRESENT
@@ -291,7 +295,7 @@ void ATHandler::process_oob()
 #endif
                 }
             }
-        } while (timer.read_ms() < 20); // URC's are very short so 20ms should be enough
+        } while (timer.read_ms() < 100); // URC's are very short
     }
     tr_debug("process_oob exit");
 
@@ -312,7 +316,8 @@ void ATHandler::set_filehandle_sigio()
 void ATHandler::reset_buffer()
 {
     tr_debug("%s", __func__);
-    _recv_pos = 0; _recv_len = 0;
+    _recv_pos = 0;
+    _recv_len = 0;
 }
 
 void ATHandler::rewind_buffer()
@@ -338,19 +343,19 @@ void ATHandler::fill_buffer()
     Timer timer;
     timer.start();
     do {
-       ssize_t len = _fileHandle->read(_recv_buff + _recv_len, sizeof(_recv_buff) - _recv_len);
+        ssize_t len = _fileHandle->read(_recv_buff + _recv_len, sizeof(_recv_buff) - _recv_len);
         if (len > 0) {
             _recv_len += len;
-           at_debug("\n----------readable----------: %d\n", _recv_len);
-           for (size_t i = _recv_pos; i < _recv_len; i++) {
-               at_debug("%c", _recv_buff[i]);
-           }
-           at_debug("\n----------readable----------\n");
-           return;
-       } else if (len != -EAGAIN && len != 0) {
-           tr_warn("%s error: %d while reading", __func__, len);
-           break;
-       }
+            at_debug("\n----------readable----------: %d\n", _recv_len);
+            for (size_t i = _recv_pos; i < _recv_len; i++) {
+                at_debug("%c", _recv_buff[i]);
+            }
+            at_debug("\n----------readable----------\n");
+            return;
+        } else if (len != -EAGAIN && len != 0) {
+            tr_warn("%s error: %d while reading", __func__, len);
+            break;
+        }
 #ifdef MBED_CONF_RTOS_PRESENT
         rtos::Thread::yield();
 #endif
@@ -504,9 +509,9 @@ int32_t ATHandler::read_int()
 {
     tr_debug("%s", __func__);
 
-     if (_last_err || !_stop_tag || _stop_tag->found) {
-         return -1;
-     }
+    if (_last_err || !_stop_tag || _stop_tag->found) {
+        return -1;
+    }
 
     char buff[BUFF_SIZE];
     char *first_no_digit;
@@ -555,24 +560,24 @@ void ATHandler::set_scope(ScopeType scope_type)
     if (_current_scope != scope_type) {
         _current_scope = scope_type;
         switch (_current_scope) {
-        case RespType:
-            _stop_tag = &_resp_stop;
-            _stop_tag->found = false;
-            break;
-        case InfoType:
-            _stop_tag = &_info_stop;
-            _stop_tag->found = false;
-            consume_char(' ');
-            break;
-        case ElemType:
-            _stop_tag = &_elem_stop;
-            _stop_tag->found = false;
-            break;
-        case NotSet:
-            _stop_tag = NULL;
-            return;
-        default:
-            break;
+            case RespType:
+                _stop_tag = &_resp_stop;
+                _stop_tag->found = false;
+                break;
+            case InfoType:
+                _stop_tag = &_info_stop;
+                _stop_tag->found = false;
+                consume_char(' ');
+                break;
+            case ElemType:
+                _stop_tag = &_elem_stop;
+                _stop_tag->found = false;
+                break;
+            case NotSet:
+                _stop_tag = NULL;
+                return;
+            default:
+                break;
         }
     }
 }
@@ -601,10 +606,10 @@ bool ATHandler::match_urc()
     rewind_buffer();
     size_t prefix_len = 0;
     for (struct oob_t *oob = _oobs; oob; oob = oob->next) {
-        prefix_len = strlen(oob->prefix);
+        prefix_len = oob->prefix_len;
         if (_recv_len >= prefix_len) {
             if (match(oob->prefix, prefix_len)) {
-                tr_debug("URC! %s", oob->prefix);
+                tr_debug("URC! %s\n", oob->prefix);
                 set_scope(InfoType);
                 if (oob->cb) {
                     oob->cb();
@@ -808,7 +813,7 @@ bool ATHandler::info_resp()
 
     if (_prefix_matched) {
         _prefix_matched = false;
-       return true;
+        return true;
     }
 
     // If coming here after another info response was started(looping), stop the previous one.
@@ -820,9 +825,9 @@ bool ATHandler::info_resp()
     resp(_info_resp_prefix, false);
 
     if (_prefix_matched) {
-       set_scope(InfoType);
-       _prefix_matched = false;
-       return true;
+        set_scope(InfoType);
+        _prefix_matched = false;
+        return true;
     }
 
     // On mismatch go to response scope
@@ -1049,7 +1054,7 @@ void ATHandler::cmd_stop()
     if (_last_err != NSAPI_ERROR_OK) {
         return;
     }
-     // Finish with CR
+    // Finish with CR
     for (size_t i = 0; i < _output_delimiter_length; i++) {
         if (write_char(_output_delimiter[i]) == false) {
             break;
