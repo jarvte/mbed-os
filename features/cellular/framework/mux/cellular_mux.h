@@ -48,6 +48,8 @@ storage requirements correctly at compile time.
 
 namespace mbed {
 
+class Mux;
+
 class MuxDataService : public FileHandle
 {
     friend class Mux;
@@ -101,9 +103,11 @@ public:
     virtual void sigio(Callback<void()> func);
 
     /** Constructor. */
-    MuxDataService() : _dlci(MUX_DLCI_INVALID_ID) {};
+    MuxDataService(Mux &mux) : _mux(mux), _dlci(MUX_DLCI_INVALID_ID) {};
 
 private:
+    /* Owner of this object */
+    Mux &_mux;
 
     /* Deny copy constructor. */
     MuxDataService(const MuxDataService& obj);
@@ -139,8 +143,12 @@ public:
         MUX_STATUS_MAX
     };
 
+    /** Class constructor.
+     */
+    Mux();
+
     /** Module init. */
-    static void module_init();
+    void module_init();
 
     /** Establish the multiplexer control channel.
      *
@@ -153,7 +161,7 @@ public:
      *  @return MUX_STATUS_INPROGRESS  Operation not started, control channel open already in progress.
      *  @return MUX_STATUS_NO_RESOURCE Operation not started, multiplexer control channel already open.
      */
-    static MuxReturnStatus mux_start(MuxEstablishStatus &status);
+    MuxReturnStatus mux_start(MuxEstablishStatus &status);
 
     /** Establish a DLCI.
      *
@@ -173,19 +181,19 @@ public:
      *  @return MUX_STATUS_NO_RESOURCE   Operation not started, dlci_id or all available DLCI ID resources,
      *                                   already in use.
      */
-    static MuxReturnStatus dlci_establish(uint8_t dlci_id, MuxEstablishStatus &status, FileHandle **obj);
+    MuxReturnStatus dlci_establish(uint8_t dlci_id, MuxEstablishStatus &status, FileHandle **obj);
 
     /** Attach serial interface to the object.
      *
      *  @param serial Serial interface to be used.
      */
-    static void serial_attach(FileHandle *serial);
+    void serial_attach(FileHandle *serial);
 
     /** Attach EventQueue interface to the object.
      *
      *  @param event_queue Event queue interface to be used.
      */
-    static void eventqueue_attach(events::EventQueue *event_queue);
+    void eventqueue_attach(events::EventQueue *event_queue);
 
 private:
 
@@ -235,13 +243,13 @@ private:
     };
 
     /** Registered time-out expiration event. */
-    static void on_timeout();
+    void on_timeout();
 
     /** Registered deferred call event in safe (thread context) supplied in eventqueue_attach. */
-    static void on_deferred_call();
+    void on_deferred_call();
 
     /** Registered sigio callback from FileHandle. */
-    static void on_sigio();
+    void on_sigio();
 
     /** Calculate fcs.
      *
@@ -250,17 +258,17 @@ private:
      *
      *  @return Calculated fcs.
      */
-    static uint8_t fcs_calculate(const uint8_t *buffer,  uint8_t input_len);
+    uint8_t fcs_calculate(const uint8_t *buffer,  uint8_t input_len);
 
     /** Construct sabm request message.
      *
      *  @param dlci_id ID of the DLCI to establish
      */
-    static void sabm_request_construct(uint8_t dlci_id);
+    void sabm_request_construct(uint8_t dlci_id);
 
     /** Construct dm response message.
      */
-    static void dm_response_construct();
+    void dm_response_construct();
 
     /** Construct user information frame.
      *
@@ -268,98 +276,98 @@ private:
      *  @param buffer
      *  @param size
      */
-    static void user_information_construct(uint8_t dlci_id, const void *buffer, size_t size);
+    void user_information_construct(uint8_t dlci_id, const void *buffer, size_t size);
 
     /** Do write operation if pending data available.
      */
-    static void write_do();
+    void write_do();
 
     /** Generate Rx event.
      *
      *  @param event Rx event
      */
-    static void rx_event_do(RxEvent event);
+    void rx_event_do(RxEvent event);
 
     /** Rx event frame start read state.
      *
      *  @return Number of bytes read, -EAGAIN if no data available.
      */
-    static ssize_t on_rx_read_state_frame_start();
+    ssize_t on_rx_read_state_frame_start();
 
     /** Rx event header read state.
      *
      *  @return Number of bytes read, -EAGAIN if no data available.
      */
-    static ssize_t on_rx_read_state_header_read();
+    ssize_t on_rx_read_state_header_read();
 
     /** Rx event trailer read state.
      *
      *  @return Number of bytes read, -EAGAIN if no data available.
      */
-    static ssize_t on_rx_read_state_trailer_read();
+    ssize_t on_rx_read_state_trailer_read();
 
     /** Rx event suspend read state.
      *
      *  @return Number of bytes read, -EAGAIN if no data available.
      */
-    static ssize_t on_rx_read_state_suspend();
+    ssize_t on_rx_read_state_suspend();
 
     /** Process received SABM frame. */
-    static void on_rx_frame_sabm();
+    void on_rx_frame_sabm();
 
     /** Process received UA frame. */
-    static void on_rx_frame_ua();
+    void on_rx_frame_ua();
 
     /** Process received DM frame. */
-    static void on_rx_frame_dm();
+    void on_rx_frame_dm();
 
     /** Process received DISC frame. */
-    static void on_rx_frame_disc();
+    void on_rx_frame_disc();
 
     /** Process received UIH frame. */
-    static void on_rx_frame_uih();
+    void on_rx_frame_uih();
 
     /** Process received frame, which is not supported. */
-    static void on_rx_frame_not_supported();
+    void on_rx_frame_not_supported();
 
     /** Process valid received frame. */
-    static void valid_rx_frame_decode();
+    void valid_rx_frame_decode();
 
     /** SABM frame tx path post processing. */
-    static void on_post_tx_frame_sabm();
+    void on_post_tx_frame_sabm();
 
     /** DM frame tx path post processing. */
-    static void on_post_tx_frame_dm();
+    void on_post_tx_frame_dm();
 
     /** UIH frame tx path post processing. */
-    static void on_post_tx_frame_uih();
+    void on_post_tx_frame_uih();
 
     /** Resolve rx frame type.
      *
      *  @return Frame type.
      */
-    static Mux::FrameRxType frame_rx_type_resolve();
+    Mux::FrameRxType frame_rx_type_resolve();
 
     /** Resolve tx frame type.
      *
      *  @return Frame type.
      */
-    static Mux::FrameTxType frame_tx_type_resolve();
+    Mux::FrameTxType frame_tx_type_resolve();
 
     /** Begin the frame retransmit sequence. */
-    static void frame_retransmit_begin();
+    void frame_retransmit_begin();
 
     /** TX state entry functions. */
-    static void tx_retransmit_enqueu_entry_run();
-    static void tx_retransmit_done_entry_run();
-    static void tx_idle_entry_run();
-    static void tx_internal_resp_entry_run();
-    static void tx_noretransmit_entry_run();
-    typedef void (*tx_state_entry_func_t)();
+    void tx_retransmit_enqueu_entry_run();
+    void tx_retransmit_done_entry_run();
+    void tx_idle_entry_run();
+    void tx_internal_resp_entry_run();
+    void tx_noretransmit_entry_run();
+    typedef void (Mux::*tx_state_entry_func_t)();
 
     /** TX state exit function. */
-    static void tx_idle_exit_run();
-    typedef void (*tx_state_exit_func_t)();
+    void tx_idle_exit_run();
+    typedef void (Mux::*tx_state_exit_func_t)();
 
     /** Change Tx state machine state.
      *
@@ -367,30 +375,30 @@ private:
      *  @param entry_func State entry function.
      *  @param exit_func  State exit function.
      */
-    static void tx_state_change(TxState new_state, tx_state_entry_func_t entry_func, tx_state_exit_func_t exit_func);
+    void tx_state_change(TxState new_state, tx_state_entry_func_t entry_func, tx_state_exit_func_t exit_func);
 
     /** RX state entry functions. */
-    static void rx_header_read_entry_run();
-    typedef void (*rx_state_entry_func_t)();
+    void rx_header_read_entry_run();
+    typedef void (Mux::*rx_state_entry_func_t)();
 
     /** Null action function. */
-    static void null_action();
+    void null_action();
 
     /** Change Rx state machine state.
      *
      *  @param new_state  State to transit.
      *  @param entry_func State entry function.
      */
-    static void rx_state_change(RxState new_state, rx_state_entry_func_t entry_func);
+    void rx_state_change(RxState new_state, rx_state_entry_func_t entry_func);
 
     /** Begin DM frame transmit sequence. */
-    static void dm_response_send();
+    void dm_response_send();
 
     /** Append DLCI ID to storage.
      *
      *  @param dlci_id ID of the DLCI to append.
      */
-    static void dlci_id_append(uint8_t dlci_id);
+    void dlci_id_append(uint8_t dlci_id);
 
     /** Get file handle based on DLCI ID.
      *
@@ -398,7 +406,7 @@ private:
      *
      *  @return Valid object reference or NULL if not found.
      */
-    static MuxDataService* file_handle_get(uint8_t dlci_id);
+    MuxDataService* file_handle_get(uint8_t dlci_id);
 
     /** Evaluate is DLCI ID in use.
      *
@@ -406,25 +414,25 @@ private:
      *
      *  @return True if in use, false otherwise.
      */
-    static bool is_dlci_in_use(uint8_t dlci_id);
+    bool is_dlci_in_use(uint8_t dlci_id);
 
     /** Evaluate is DLCI ID queue full.
      *
      *  @return True if full, false otherwise.
      */
-    static bool is_dlci_q_full();
+    bool is_dlci_q_full();
 
     /** Begin pending self iniated multiplexer open sequence. */
-    static void pending_self_iniated_mux_open_start();
+    void pending_self_iniated_mux_open_start();
 
     /** Begin pending self iniated DLCI establishment sequence. */
-    static void pending_self_iniated_dlci_open_start();
+    void pending_self_iniated_dlci_open_start();
 
     /** Begin pending peer iniated DLCI establishment sequence.
      *
      *  @param dlci_id ID of the DLCI to establish.
      */
-    static void pending_peer_iniated_dlci_open_start(uint8_t dlci_id);
+    void pending_peer_iniated_dlci_open_start(uint8_t dlci_id);
 
     /** Enqueue user data for transmission.
      *
@@ -436,7 +444,7 @@ private:
      *  @param size    The number of bytes to write.
      *  @return        The number of bytes written, negative error on failure.
      */
-    static ssize_t user_data_tx(uint8_t dlci_id, const void* buffer, size_t size);
+    ssize_t user_data_tx(uint8_t dlci_id, const void* buffer, size_t size);
 
     /** Read user data into a buffer.
      *
@@ -446,54 +454,54 @@ private:
      *  @param size   The number of bytes to read.
      *  @return       The number of bytes read, -EAGAIN if no data availabe for read.
      */
-    static ssize_t user_data_rx(void* buffer, size_t size);
+    ssize_t user_data_rx(void* buffer, size_t size);
 
     /** Check for poll event flags
      *
      * @return Bitmask of poll events that have occurred - POLLIN/POLLOUT.
      */
-    static short poll();
+    short poll();
 
     /** Clear TX callback pending bit.
      *
      *  @param bit Bit to clear.
      */
-    static void tx_callback_pending_bit_clear(uint8_t bit);
+    void tx_callback_pending_bit_clear(uint8_t bit);
 
     /** Set TX callback pending bit for supplied DLCI ID.
      *
      *  @param dlci_id DLCI ID for bit to set.
      */
-    static void tx_callback_pending_bit_set(uint8_t dlci_id);
+    void tx_callback_pending_bit_set(uint8_t dlci_id);
 
     /** Advance the current TX callback index bit.
      *
      *  @return The current TX callback index bit after advanced.
      */
-    static uint8_t tx_callback_index_advance();
+    uint8_t tx_callback_index_advance();
 
     /** Get the TX callback pending bitmask.
      *
      *  @return TX callback pending bitmask.
      */
-    static uint8_t tx_callback_pending_mask_get();
+    uint8_t tx_callback_pending_mask_get();
 
     /** Dispatch TX callback based on supplied bit.
      *
      *  @param bit Bit identifier of callback to dispatch.
      */
-    static void tx_callback_dispatch(uint8_t bit);
+    void tx_callback_dispatch(uint8_t bit);
 
     /** Run main processing loop for resolving pending TX callbacks and dispatching them if they exist.
      */
-    static void tx_callbacks_run();
+    void tx_callbacks_run();
 
     /** Get data service object based on supplied bit id.
      *
      *  @param bit Bit identifier of data service object to get.
      *  @return    Data service object reference.
      */
-    static MuxDataService& tx_callback_lookup(uint8_t bit);
+    MuxDataService& tx_callback_lookup(uint8_t bit);
 
     /** Get minimum of 2 supplied paramaters.
      *
@@ -501,20 +509,17 @@ private:
      *  @param size_2 2nd param for comparison.
      *  @return       Minimum of supplied paramaters.
      */
-    static size_t min(uint8_t size_1, size_t size_2);
+    size_t min(uint8_t size_1, size_t size_2);
 
     /** Enqueue callback to event queue.
      */
-    static void event_queue_enqueue();
+    void event_queue_enqueue();
 
     /** Verify is FCS valid in RX frame.
      *
      *  @return True upon valid FCS, false otherwise.
      */
-    static bool is_rx_fcs_valid();
-
-    /* Deny object creation. */
-    Mux();
+    bool is_rx_fcs_valid();
 
     /* Deny copy constructor. */
     Mux(const Mux& obj);
@@ -563,16 +568,16 @@ private:
         uint16_t is_user_rx_ready         : 1; /* True when user RX is ready/available. */
     };
 
-    static FileHandle*          _serial;                                /* Serial used. */
-    static events::EventQueue*  _event_q;                               /* Event queue used. */
-    static rtos::Semaphore      _semaphore;                             /* Semaphore used. */
-    static PlatformMutex        _mutex;                                 /* Mutex used. */
-    static MuxDataService       _mux_objects[MBED_CONF_MUX_DLCI_COUNT]; /* Number of supported DLCIs. */
-    static tx_context_t         _tx_context;                            /* Tx context. */
-    static rx_context_t         _rx_context;                            /* Rx context. */
-    static state_t              _state;                                 /* General state context. */
-    static const uint8_t        _crctable[MUX_CRC_TABLE_LEN];           /* CRC table used for frame FCS. */
-    static uint8_t              _shared_memory;                         /* Shared memory used passing data between user and
+    FileHandle*          _serial;                                /* Serial used. */
+    events::EventQueue*  _event_q;                               /* Event queue used. */
+    rtos::Semaphore      _semaphore;                             /* Semaphore used. */
+    PlatformMutex        _mutex;                                 /* Mutex used. */
+    MuxDataService       *_mux_objects[MBED_CONF_MUX_DLCI_COUNT];/* Number of supported DLCIs. */
+    tx_context_t         _tx_context;                            /* Tx context. */
+    rx_context_t         _rx_context;                            /* Rx context. */
+    state_t              _state;                                 /* General state context. */
+    static const uint8_t _crctable[MUX_CRC_TABLE_LEN];           /* CRC table used for frame FCS. */
+    uint8_t              _shared_memory;                         /* Shared memory used passing data between user and
                                                                      system threads. */
 };
 
