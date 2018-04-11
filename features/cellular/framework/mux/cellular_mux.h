@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#if MBED_CONF_CELLULAR_MUX_ENABLED
+#if MBED_CONF_APP_CELLULAR_MUX_ENABLED
 
 #ifndef MUX_H
 #define MUX_H
@@ -580,4 +580,4 @@ private:
 
 #endif
 
-#endif // MBED_CONF_CELLULAR_MUX_ENABLED
+#endif // MBED_CONF_APP_CELLULAR_MUX_ENABLED

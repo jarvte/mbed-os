@@ -25,7 +25,7 @@
 #include "AT_CellularSMS.h"
 #include "AT_CellularPower.h"
 #include "AT_CellularInformation.h"
-
+#include "AT_CellularMultiplexer.h"
 #include "ATHandler.h"
 
 namespace mbed
@@ -65,6 +65,8 @@ public: // CellularDevice
 
     virtual CellularInformation *open_information(FileHandle *fh);
 
+    virtual CellularMultiplexer *open_multiplexer(FileHandle *fh);
+
     virtual void close_network();
 
     virtual void close_sms();
@@ -74,6 +76,8 @@ public: // CellularDevice
     virtual void close_sim();
 
     virtual void close_information();
+
+    virtual void close_multiplexer();
 
     virtual void set_timeout(int timeout);
 
@@ -87,6 +91,7 @@ protected:
     AT_CellularSIM *_sim;
     AT_CellularPower* _power;
     AT_CellularInformation* _information;
+    AT_CellularMultiplexer* _multiplexer;
 
 protected:
     events::EventQueue &_queue;

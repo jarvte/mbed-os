@@ -25,6 +25,8 @@
 #include "CellularSMS.h"
 #include "CellularPower.h"
 #include "CellularInformation.h"
+#include "CellularMultiplexer.h"
+#include "CellularStateMachine.h"
 #include "NetworkStack.h"
 
 namespace mbed
@@ -39,11 +41,27 @@ namespace mbed
 class CellularDevice
 {
 public:
+
+    CellularDevice();
+
     /** virtual Destructor
      */
-    virtual ~CellularDevice() {}
+    virtual ~CellularDevice() {};
 
 public:
+
+    nsapi_error_t connect();
+    void set_sim_pin(const char* pin);
+
+    /** Does all the needed initialization like creating power and state machine.
+     *
+     *  @param fh UART driver.
+     */
+    nsapi_error_t init(FileHandle *fh, events::EventQueue &queue);
+
+    CellularStateMachine* get_state_machine();
+
+
     /** Create new CellularNetwork interface.
      *
      *  @param fh    file handle used in communication to modem. Can be for example UART handle.
@@ -79,6 +97,13 @@ public:
      */
     virtual CellularInformation *open_information(FileHandle *fh) = 0;
 
+    /** Create new CellularMultiplexer interface.
+     *
+     *  @param fh    file handle used in communication to modem. Can be for example UART handle.
+     *  @return      New instance of interface CellularMultiplexer.
+     */
+    virtual CellularMultiplexer *open_multiplexer(FileHandle *fh) = 0;
+
     /** Closes the opened CellularNetwork by deleting the CellularNetwork instance.
      */
     virtual void close_network() = 0;
@@ -99,6 +124,10 @@ public:
      */
     virtual void close_information() = 0;
 
+    /** Closes the opened CellularNetwork by deleting the CellularMultiplexer instance.
+     */
+    virtual void close_multiplexer() = 0;
+
     /** Set the default response timeout.
      *
      *  @param timeout    milliseconds to wait response from modem
@@ -116,6 +145,12 @@ public:
      *  @return network stack
      */
     virtual NetworkStack *get_stack() = 0;
+
+private:
+
+    CellularStateMachine* _state_machine;
+    FileHandle* _fh;
+    events::EventQueue _queue;
 };
 
 } // namespace mbed

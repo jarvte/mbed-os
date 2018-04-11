@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#if MBED_CONF_CELLULAR_MUX_ENABLED
+#if MBED_CONF_APP_CELLULAR_MUX_ENABLED
 
 #include "cellular_mux.h"
 
@@ -61,4 +61,4 @@ void MuxDataService::sigio(Callback<void()> func)
 
 } // namespace mbed
 
-#endif // MBED_CONF_CELLULAR_MUX_ENABLED
+#endif // MBED_CONF_APP_CELLULAR_MUX_ENABLED
