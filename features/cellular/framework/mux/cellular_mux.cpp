@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#if MBED_CONF_CELLULAR_MUX_ENABLED
+#if MBED_CONF_APP_CELLULAR_MUX_ENABLED
 
 #include <errno.h>
 #include "cellular_mux.h"
@@ -1254,4 +1254,4 @@ short Mux::poll()
 
 } // namespace mbed
 
-#endif // MBED_CONF_CELLULAR_MUX_ENABLED
+#endif // MBED_CONF_APP_CELLULAR_MUX_ENABLED
