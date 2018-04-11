@@ -24,19 +24,19 @@ namespace mbed
 
 ssize_t MuxDataService::write(const void* buffer, size_t size)
 {
-    return Mux::user_data_tx(_dlci, buffer, size);
+    return _mux.user_data_tx(_dlci, buffer, size);
 }
 
 
 ssize_t MuxDataService::read(void *buffer, size_t size)
 {
-    return Mux::user_data_rx(buffer, size);
+    return _mux.user_data_rx(buffer, size);
 }
 
 
 short MuxDataService::poll(short events) const
 {
-    return Mux::poll();
+    return _mux.poll();
 }
 
 

@@ -74,16 +74,10 @@ struct frame_hdr_t {
     uint8_t information[1]; /* Begin of the information field if present. */
 };
 
-uint8_t Mux::_shared_memory = 0;
-FileHandle* Mux::_serial    = NULL;
-EventQueue* Mux::_event_q   = NULL;
+Mux::Mux() : _serial(NULL), _event_q(NULL), _semaphore(0), _shared_memory(0)
+{
+}
 
-MuxDataService Mux::_mux_objects[MBED_CONF_MUX_DLCI_COUNT];
-Semaphore Mux::_semaphore(0);
-PlatformMutex Mux::_mutex;
-Mux::tx_context_t Mux::_tx_context;
-Mux::rx_context_t Mux::_rx_context;
-Mux::state_t Mux::_state;
 const uint8_t Mux::_crctable[MUX_CRC_TABLE_LEN] = {
     0x00, 0x91, 0xE3, 0x72, 0x07, 0x96, 0xE4, 0x75,  0x0E, 0x9F, 0xED, 0x7C, 0x09, 0x98, 0xEA, 0x7B,
     0x1C, 0x8D, 0xFF, 0x6E, 0x1B, 0x8A, 0xF8, 0x69,  0x12, 0x83, 0xF1, 0x60, 0x15, 0x84, 0xF6, 0x67,
@@ -131,7 +125,8 @@ void Mux::module_init()
 
     const uint8_t end = sizeof(_mux_objects) / sizeof(_mux_objects[0]);
     for (uint8_t i = 0; i != end; ++i) {
-        _mux_objects[i]._dlci = MUX_DLCI_INVALID_ID;
+        _mux_objects[i] = new MuxDataService(*this);
+        _mux_objects[i]->_dlci = MUX_DLCI_INVALID_ID;
     }
 }
 
@@ -154,14 +149,14 @@ void Mux::on_timeout()
             if (_tx_context.retransmit_counter != 0) {
                 --(_tx_context.retransmit_counter);
                 frame_retransmit_begin();
-                tx_state_change(TX_RETRANSMIT_ENQUEUE, tx_retransmit_enqueu_entry_run, null_action);
+                tx_state_change(TX_RETRANSMIT_ENQUEUE, &Mux::tx_retransmit_enqueu_entry_run, &Mux::null_action);
             } else {
                 /* Retransmission limit reached, change state and release the suspended call thread with appropriate
                    status code. */
                 _shared_memory           = MUX_ESTABLISH_TIMEOUT;
                 const osStatus os_status = _semaphore.release();
                 MBED_ASSERT(os_status == osOK);
-                tx_state_change(TX_IDLE, tx_idle_entry_run, null_action);
+                tx_state_change(TX_IDLE, &Mux::tx_idle_entry_run, &Mux::null_action);
             }
             break;
         default:
@@ -193,7 +188,7 @@ void Mux::dm_response_construct()
 void Mux::on_rx_frame_sabm()
 {
     /* Peer iniated open/establishment is not supported. */
-    rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+    rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
 
@@ -221,7 +216,7 @@ void Mux::on_rx_frame_ua()
 
                     os_status = _semaphore.release();
                     MBED_ASSERT(os_status == osOK);
-                    tx_state_change(TX_IDLE, tx_idle_entry_run, null_action);
+                    tx_state_change(TX_IDLE, &Mux::tx_idle_entry_run, &Mux::null_action);
                 }
             }
             break;
@@ -230,7 +225,7 @@ void Mux::on_rx_frame_ua()
             break;
     }
 
-    rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+    rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
 
@@ -254,7 +249,7 @@ void Mux::on_rx_frame_dm()
                     _shared_memory = MUX_ESTABLISH_REJECT;
                     os_status      = _semaphore.release();
                     MBED_ASSERT(os_status == osOK);
-                    tx_state_change(TX_IDLE, tx_idle_entry_run, null_action);
+                    tx_state_change(TX_IDLE, &Mux::tx_idle_entry_run, &Mux::null_action);
                 }
             }
             break;
@@ -263,7 +258,7 @@ void Mux::on_rx_frame_dm()
             break;
     }
 
-    rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+    rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
 
@@ -276,7 +271,7 @@ void Mux::tx_internal_resp_entry_run()
 void Mux::dm_response_send()
 {
     dm_response_construct();
-    tx_state_change(TX_INTERNAL_RESP, tx_internal_resp_entry_run, tx_idle_exit_run);
+    tx_state_change(TX_INTERNAL_RESP, &Mux::tx_internal_resp_entry_run, &Mux::tx_idle_exit_run);
 }
 
 
@@ -314,7 +309,7 @@ void Mux::on_rx_frame_disc()
             break;
     }
 
-    rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+    rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
 
@@ -341,7 +336,7 @@ void Mux::on_rx_frame_uih()
                     _rx_context.offset      = 0;
                     _rx_context.read_length = length;
 
-                    rx_state_change(RX_SUSPEND, null_action);
+                    rx_state_change(RX_SUSPEND, &Mux::null_action);
                     obj->_sigio_cb();
 
                     return;
@@ -351,13 +346,13 @@ void Mux::on_rx_frame_uih()
     }
 
     /* Default behaviour upon Rx of non valid user data frame. */
-    rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+    rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
 
 void Mux::on_rx_frame_not_supported()
 {
-    rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+    rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
 
@@ -383,22 +378,22 @@ Mux::FrameRxType Mux::frame_rx_type_resolve()
 
 void Mux::tx_state_change(TxState new_state, tx_state_entry_func_t entry_func, tx_state_exit_func_t exit_func)
 {
-    exit_func();
+    (this->*exit_func)();
     _tx_context.tx_state = new_state;
-    entry_func();
+    (this->*entry_func)();
 }
 
 
 void Mux::event_queue_enqueue()
 {
-    const int id = _event_q->call(Mux::on_deferred_call);
+    const int id = _event_q->call(this, &Mux::on_deferred_call);
     MBED_ASSERT(id != 0);
 }
 
 
 void Mux::tx_retransmit_done_entry_run()
 {
-    _tx_context.timer_id = _event_q->call_in(T1_TIMER_VALUE, Mux::on_timeout);
+    _tx_context.timer_id = _event_q->call_in(T1_TIMER_VALUE, this, &Mux::on_timeout);
     MBED_ASSERT(_tx_context.timer_id != 0);
 }
 
@@ -407,7 +402,7 @@ bool Mux::is_dlci_in_use(uint8_t dlci_id)
 {
     const uint8_t end = sizeof(_mux_objects) / sizeof(_mux_objects[0]);
     for (uint8_t i = 0; i != end; ++i) {
-        if (_mux_objects[i]._dlci== dlci_id) {
+        if (_mux_objects[i]->_dlci== dlci_id) {
             return true;
         }
     }
@@ -420,7 +415,7 @@ void Mux::on_post_tx_frame_sabm()
 {
     switch (_tx_context.tx_state) {
         case TX_RETRANSMIT_ENQUEUE:
-            tx_state_change(TX_RETRANSMIT_DONE, tx_retransmit_done_entry_run, null_action);
+            tx_state_change(TX_RETRANSMIT_DONE, &Mux::tx_retransmit_done_entry_run, &Mux::null_action);
             break;
         default:
             /* Code that should never be reached. */
@@ -437,7 +432,7 @@ void Mux::pending_self_iniated_mux_open_start()
     _state.is_mux_open_pending = 0;
 
     sabm_request_construct(0);
-    tx_state_change(TX_RETRANSMIT_ENQUEUE, tx_retransmit_enqueu_entry_run, tx_idle_exit_run);
+    tx_state_change(TX_RETRANSMIT_ENQUEUE, &Mux::tx_retransmit_enqueu_entry_run, &Mux::tx_idle_exit_run);
     _tx_context.retransmit_counter = RETRANSMIT_COUNT;
 }
 
@@ -449,7 +444,7 @@ void Mux::pending_self_iniated_dlci_open_start()
     _state.is_dlci_open_pending = 0;
 
     sabm_request_construct(_shared_memory);
-    tx_state_change(TX_RETRANSMIT_ENQUEUE, tx_retransmit_enqueu_entry_run, tx_idle_exit_run);
+    tx_state_change(TX_RETRANSMIT_ENQUEUE, &Mux::tx_retransmit_enqueu_entry_run, &Mux::tx_idle_exit_run);
     _tx_context.retransmit_counter = RETRANSMIT_COUNT;
 }
 
@@ -496,7 +491,7 @@ void Mux::tx_callback_pending_bit_set(uint8_t dlci_id)
     const uint8_t end = sizeof(_mux_objects) / sizeof(_mux_objects[0]);
 
     do {
-        if (_mux_objects[i]._dlci== dlci_id) {
+        if (_mux_objects[i]->_dlci== dlci_id) {
             break;
         }
 
@@ -526,7 +521,7 @@ MuxDataService& Mux::tx_callback_lookup(uint8_t bit)
 
     MBED_ASSERT(i != end);
 
-    return _mux_objects[i];
+    return *_mux_objects[i];
 }
 
 
@@ -566,7 +561,7 @@ void Mux::tx_callbacks_run()
 
             /* TX buffer was constructed within @ref user_data_tx, now start the TX cycle. */
             _state.is_user_tx_pending = 0;
-            tx_state_change(TX_NORETRANSMIT, tx_noretransmit_entry_run, tx_idle_exit_run);
+            tx_state_change(TX_NORETRANSMIT, &Mux::tx_noretransmit_entry_run, &Mux::tx_idle_exit_run);
             if (_tx_context.tx_state != TX_IDLE) {
                 /* TX cycle not finished within current context, stop callback processing as we will continue when TX
                    cycle finishes and this function is re-entered. */
@@ -604,7 +599,7 @@ void Mux::on_post_tx_frame_dm()
 {
     switch (_tx_context.tx_state) {
         case TX_INTERNAL_RESP:
-            tx_state_change(TX_IDLE, tx_idle_entry_run, null_action);
+            tx_state_change(TX_IDLE, &Mux::tx_idle_entry_run, &Mux::null_action);
             break;
         default:
             /* Code that should never be reached. */
@@ -618,7 +613,7 @@ void Mux::on_post_tx_frame_uih()
 {
     switch (_tx_context.tx_state) {
         case TX_NORETRANSMIT:
-            tx_state_change(TX_IDLE, tx_idle_entry_run, null_action);
+            tx_state_change(TX_IDLE, &Mux::tx_idle_entry_run, &Mux::null_action);
             break;
         default:
             /* Code that should never be reached. */
@@ -660,7 +655,7 @@ void Mux::rx_header_read_entry_run()
 
 void Mux::rx_state_change(RxState new_state, rx_state_entry_func_t entry_func)
 {
-    entry_func();
+    (this->*entry_func)();
     _rx_context.rx_state = new_state;
 }
 
@@ -677,7 +672,7 @@ ssize_t Mux::on_rx_read_state_frame_start()
         _rx_context.offset     += FRAME_START_READ_LEN;
         _rx_context.read_length = FRAME_HEADER_READ_LEN;
 
-        rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+        rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
     }
 
     return read_err;
@@ -717,7 +712,7 @@ ssize_t Mux::on_rx_read_state_header_read()
         MBED_ASSERT(_rx_context.read_length <=
                     (MBED_CONF_MUX_BUFFER_SIZE - (FRAME_START_READ_LEN + FRAME_HEADER_READ_LEN)));
 
-        rx_state_change(RX_TRAILER_READ, null_action);
+        rx_state_change(RX_TRAILER_READ, &Mux::null_action);
     }
 
     return read_err;
@@ -736,14 +731,14 @@ bool Mux::is_rx_fcs_valid()
 
 ssize_t Mux::on_rx_read_state_trailer_read()
 {
-    typedef void (*rx_frame_decoder_func_t)();
+    typedef void (Mux::*rx_frame_decoder_func_t)();
     static const rx_frame_decoder_func_t rx_frame_decoder_func[FRAME_RX_TYPE_MAX] = {
-        on_rx_frame_sabm,
-        on_rx_frame_ua,
-        on_rx_frame_dm,
-        on_rx_frame_disc,
-        on_rx_frame_uih,
-        on_rx_frame_not_supported
+        &Mux::on_rx_frame_sabm,
+        &Mux::on_rx_frame_ua,
+        &Mux::on_rx_frame_dm,
+        &Mux::on_rx_frame_disc,
+        &Mux::on_rx_frame_uih,
+        &Mux::on_rx_frame_not_supported
     };
 
     ssize_t read_err;
@@ -762,9 +757,9 @@ ssize_t Mux::on_rx_read_state_trailer_read()
             const Mux::FrameRxType frame_type  = frame_rx_type_resolve();
             const rx_frame_decoder_func_t func = rx_frame_decoder_func[frame_type];
 
-            func();
+            (this->*func)();
         } else {
-            rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+            rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
         }
     }
 
@@ -780,12 +775,12 @@ ssize_t Mux::on_rx_read_state_suspend()
 
 void Mux::rx_event_do(RxEvent event)
 {
-    typedef ssize_t (*rx_read_func_t)();
+    typedef ssize_t (Mux::*rx_read_func_t)();
     static const rx_read_func_t rx_read_func[RX_STATE_MAX] = {
-        on_rx_read_state_frame_start,
-        on_rx_read_state_header_read,
-        on_rx_read_state_trailer_read,
-        on_rx_read_state_suspend,
+        &Mux::on_rx_read_state_frame_start,
+        &Mux::on_rx_read_state_header_read,
+        &Mux::on_rx_read_state_trailer_read,
+        &Mux::on_rx_read_state_suspend,
     };
 
     switch (event) {
@@ -794,14 +789,14 @@ void Mux::rx_event_do(RxEvent event)
         case RX_READ:
             do {
                 func     = rx_read_func[_rx_context.rx_state];
-                read_err = func();
+                read_err = (this->*func)();
             } while (read_err != -EAGAIN);
 
             break;
         case RX_RESUME:
             MBED_ASSERT(_rx_context.rx_state == RX_SUSPEND);
 
-            rx_state_change(RX_HEADER_READ, rx_header_read_entry_run);
+            rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
             event_queue_enqueue();
             break;
         default:
@@ -831,15 +826,15 @@ void Mux::write_do()
             if (_tx_context.bytes_remaining == 0) {
                 /* Frame write complete, execute correct post processing function for clean-up. */
 
-                typedef void (*post_tx_frame_func_t)();
+                typedef void (Mux::*post_tx_frame_func_t)();
                 static const post_tx_frame_func_t post_tx_func[FRAME_TX_TYPE_MAX] = {
-                    on_post_tx_frame_sabm,
-                    on_post_tx_frame_dm,
-                    on_post_tx_frame_uih
+                    &Mux::on_post_tx_frame_sabm,
+                    &Mux::on_post_tx_frame_dm,
+                    &Mux::on_post_tx_frame_uih
                 };
                 const Mux::FrameTxType     frame_type = frame_tx_type_resolve();
                 const post_tx_frame_func_t func       = post_tx_func[frame_type];
-                func();
+                (this->*func)();
             }
 
             break;
@@ -881,7 +876,7 @@ void Mux::serial_attach(FileHandle *serial)
 {
     _serial = serial;
 
-    _serial->sigio(Mux::on_sigio);
+    _serial->sigio(callback(this, &Mux::on_sigio));
     _serial->set_blocking(false);
 }
 
@@ -920,7 +915,7 @@ bool Mux::is_dlci_q_full()
 {
     const uint8_t end = sizeof(_mux_objects) / sizeof(_mux_objects[0]);
     for (uint8_t i = 0; i != end; ++i) {
-        if (_mux_objects[i]._dlci== MUX_DLCI_INVALID_ID) {
+        if (_mux_objects[i]->_dlci== MUX_DLCI_INVALID_ID) {
             return false;
         }
     }
@@ -934,8 +929,8 @@ void Mux::dlci_id_append(uint8_t dlci_id)
     uint8_t i         = 0;
     const uint8_t end = sizeof(_mux_objects) / sizeof(_mux_objects[0]);
     do {
-        if (_mux_objects[i]._dlci== MUX_DLCI_INVALID_ID) {
-            _mux_objects[i]._dlci= dlci_id;
+        if (_mux_objects[i]->_dlci== MUX_DLCI_INVALID_ID) {
+            _mux_objects[i]->_dlci= dlci_id;
 
             break;
         }
@@ -953,8 +948,8 @@ MuxDataService * Mux::file_handle_get(uint8_t dlci_id)
     MuxDataService* obj = NULL;
     const uint8_t end = sizeof(_mux_objects) / sizeof(_mux_objects[0]);
     for (uint8_t i = 0; i != end; ++i) {
-        if (_mux_objects[i]._dlci== dlci_id) {
-            obj = &(_mux_objects[i]);
+        if (_mux_objects[i]->_dlci== dlci_id) {
+            obj = (_mux_objects[i]);
 
             break;
         }
@@ -1006,7 +1001,7 @@ Mux::MuxReturnStatus Mux::dlci_establish(uint8_t dlci_id, MuxEstablishStatus &st
             /* Construct the frame, start the tx sequence, and suspend the call thread upon write sequence success. */
             sabm_request_construct(dlci_id);
             _tx_context.retransmit_counter = RETRANSMIT_COUNT;
-            tx_state_change(TX_RETRANSMIT_ENQUEUE, tx_retransmit_enqueu_entry_run, tx_idle_exit_run);
+            tx_state_change(TX_RETRANSMIT_ENQUEUE, &Mux::tx_retransmit_enqueu_entry_run, &Mux::tx_idle_exit_run);
             _state.is_dlci_open_running = 1u;
 
             _mutex.unlock();
@@ -1079,7 +1074,7 @@ Mux::MuxReturnStatus Mux::mux_start(Mux::MuxEstablishStatus &status)
             /* Construct the frame, start the tx sequence, and suspend the call thread upon write sequence success. */
             sabm_request_construct(0);
             _tx_context.retransmit_counter = RETRANSMIT_COUNT;
-            tx_state_change(TX_RETRANSMIT_ENQUEUE, tx_retransmit_enqueu_entry_run, tx_idle_exit_run);
+            tx_state_change(TX_RETRANSMIT_ENQUEUE, &Mux::tx_retransmit_enqueu_entry_run, &Mux::tx_idle_exit_run);
             _state.is_mux_open_running = 1u;
 
             _mutex.unlock();
@@ -1163,7 +1158,7 @@ ssize_t Mux::user_data_tx(uint8_t dlci_id, const void* buffer, size_t size)
                 /* Proper state to start TX cycle within current context. */
 
                 user_information_construct(dlci_id, buffer, size);
-                tx_state_change(TX_NORETRANSMIT, tx_noretransmit_entry_run, tx_idle_exit_run);
+                tx_state_change(TX_NORETRANSMIT, &Mux::tx_noretransmit_entry_run, &Mux::tx_idle_exit_run);
 
                 write_ret = size;
             } else {
