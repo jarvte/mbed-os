@@ -78,6 +78,11 @@ void CellularStateMachine::set_sim_and_network(CellularSIM* sim, CellularNetwork
     _network = nw;
 }
 
+void CellularStateMachine::set_power(CellularPower* pwr)
+{
+    _power = pwr;
+}
+
 CellularSIM* CellularStateMachine::get_sim()
 {
     return _sim;
@@ -164,8 +169,9 @@ bool CellularStateMachine::open_sim()
 
 bool CellularStateMachine::set_network_registration(char *plmn)
 {
-    if (_network->set_registration(plmn) != NSAPI_ERROR_OK) {
-        tr_error("Failed to set network registration.");
+    nsapi_error_t err = _network->set_registration(plmn);
+    if (err != NSAPI_ERROR_OK) {
+        tr_error("Failed to set network registration with: %d", err);
         return false;
     }
     return true;

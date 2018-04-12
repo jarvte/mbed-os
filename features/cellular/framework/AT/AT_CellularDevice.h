@@ -67,6 +67,8 @@ public: // CellularDevice
 
     virtual CellularMultiplexer *open_multiplexer(FileHandle *fh);
 
+    virtual void close_interface(void* iface = NULL);
+
     virtual void close_network();
 
     virtual void close_sms();

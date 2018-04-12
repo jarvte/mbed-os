@@ -128,6 +128,11 @@ public:
      */
     virtual void close_multiplexer() = 0;
 
+    /** Closes the given interface. If null, then all interfaces are closed.
+     *  @param iface interface to be closed
+     */
+    virtual void close_interface(void* iface) = 0;
+
     /** Set the default response timeout.
      *
      *  @param timeout    milliseconds to wait response from modem

@@ -27,6 +27,8 @@ CellularDevice::CellularDevice() : _state_machine(0), _fh(0)
 
 nsapi_error_t CellularDevice::init(FileHandle *fh, events::EventQueue &queue)
 {
+    tr_info("CELLULAR_DEVICE: %s", CELLULAR_STRINGIFY(CELLULAR_DEVICE));
+
     CellularPower* power = open_power(fh);
     if (!power) {
         tr_error("Could not create power");

@@ -69,6 +69,7 @@ public:
 public:
 
     void set_sim_and_network(CellularSIM* sim, CellularNetwork* nw);
+    void set_power(CellularPower* pwr);
 
 
     /** Set callback for state update
@@ -105,6 +106,7 @@ public:
      *  @return see nsapi_error_t, 0 on success
      */
     nsapi_error_t continue_to_state(CellularState state);
+    nsapi_error_t continue_from_state(CellularState state);
 
     /** Set cellular device SIM PIN code
      *  @param sim_pin PIN code
@@ -147,7 +149,7 @@ private:
     void enter_to_state(CellularState state);
     void retry_state_or_fail();
     void network_callback(nsapi_event_t ev, intptr_t ptr);
-    nsapi_error_t continue_from_state(CellularState state);
+
 
 private:
     void registering_urcs();

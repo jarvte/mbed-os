@@ -16,6 +16,7 @@
  */
 
 #include "AT_CellularDevice.h"
+#include "CellularLog.h"
 
 using namespace events;
 using namespace mbed;
@@ -89,11 +90,12 @@ void AT_CellularDevice::release_at_handler(ATHandler* at_handler)
                 } else {
                     prev->_nextATHandler = atHandler->_nextATHandler;
                 }
+                tr_info("Deleting the ATHandler");
                 delete atHandler;
                 break;
             } else {
                 prev = atHandler;
-                atHandler =atHandler->_nextATHandler;
+                atHandler = atHandler->_nextATHandler;
             }
         }
     }
@@ -234,6 +236,24 @@ void AT_CellularDevice::close_information()
         delete _information;
         _information = NULL;
     }
+}
+
+void AT_CellularDevice::close_interface(void* iface)
+{
+    if (iface == NULL) {
+        close_network();
+        close_sms();
+        close_power();
+        close_sim();
+        close_information();
+        close_multiplexer();
+        return;
+    }
+
+    AT_CellularBase* base = (AT_CellularBase*)iface;
+    release_at_handler(&base->get_at_handler());
+    delete base;
+    base = NULL;
 }
 
 void AT_CellularDevice::set_timeout(int timeout)
