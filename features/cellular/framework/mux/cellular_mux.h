@@ -147,6 +147,10 @@ public:
      */
     Mux();
 
+    /** Class destructor.
+     */
+    virtual ~Mux();
+
     /** Module init. */
     void module_init();
 
