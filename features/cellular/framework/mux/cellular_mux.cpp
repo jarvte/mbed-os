@@ -80,7 +80,7 @@ Mux::Mux() : _serial(NULL), _event_q(NULL), _semaphore(0), _shared_memory(0)
 
 Mux::~Mux()
 {
-    for (int i = 0; i < sizeof(_mux_objects) / sizeof(_mux_objects[0]); i++) {
+    for (size_t i = 0; i < sizeof(_mux_objects) / sizeof(_mux_objects[0]); i++) {
         delete _mux_objects[i];
     }
 }
@@ -137,13 +137,11 @@ void Mux::module_init()
     }
 }
 
-
 void Mux::frame_retransmit_begin()
 {
     _tx_context.bytes_remaining = _tx_context.offset;
     _tx_context.offset          = 0;
 }
-
 
 void Mux::on_timeout()
 {
@@ -176,7 +174,6 @@ void Mux::on_timeout()
     _mutex.unlock();
 }
 
-
 void Mux::dm_response_construct()
 {
     frame_hdr_t* frame_hdr =
@@ -191,13 +188,11 @@ void Mux::dm_response_construct()
     _tx_context.bytes_remaining = DM_FRAME_LEN;
 }
 
-
 void Mux::on_rx_frame_sabm()
 {
     /* Peer initiated open/establishment is not supported. */
     rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
-
 
 void Mux::on_rx_frame_ua()
 {
@@ -234,7 +229,6 @@ void Mux::on_rx_frame_ua()
 
     rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
-
 
 void Mux::on_rx_frame_dm()
 {

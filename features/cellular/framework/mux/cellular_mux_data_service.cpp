@@ -17,10 +17,15 @@
 
 #if MBED_CONF_APP_CELLULAR_MUX_ENABLED
 
+#include "cellular_mux_data_service.h"
 #include "cellular_mux.h"
 
 namespace mbed
 {
+
+MuxDataService::MuxDataService(Mux &mux) : _mux(mux), _dlci(MUX_DLCI_INVALID_ID)
+{
+}
 
 ssize_t MuxDataService::write(const void* buffer, size_t size)
 {
