@@ -24,6 +24,7 @@
 #endif
 #include "CellularLog.h"
 #include "CellularCommon.h"
+#include "CellularDevice.h"
 
 // timeout to wait for AT responses
 #define TIMEOUT_POWER_ON     (1*1000)
@@ -40,8 +41,8 @@
 namespace mbed
 {
 
-CellularStateMachine::CellularStateMachine(CellularPower *power, events::EventQueue &queue) :
-         _state(STATE_INIT), _next_state(_state), _status_callback(0), _event_status_cb(0), _network(0),
+CellularStateMachine::CellularStateMachine(CellularPower *power, events::EventQueue &queue, CellularDevice *device) :
+         _state(STATE_INIT), _next_state(_state), _status_callback(0), _event_status_cb(0), _cellularDevice(device), _network(0),
         _power(power), _sim(0), _queue(queue), _queue_thread(0), _retry_count(0),
         _event_timeout(-1), _event_id(0), _urcs_set(false)
 {
@@ -81,16 +82,6 @@ void CellularStateMachine::set_sim_and_network(CellularSIM* sim, CellularNetwork
 void CellularStateMachine::set_power(CellularPower* pwr)
 {
     _power = pwr;
-}
-
-CellularSIM* CellularStateMachine::get_sim()
-{
-    return _sim;
-}
-
-CellularNetwork* CellularStateMachine::get_network()
-{
-    return _network;
 }
 
 void CellularStateMachine::stop()
@@ -345,7 +336,7 @@ void CellularStateMachine::state_init()
 void CellularStateMachine::state_power_on()
 {
     // TODO: set timeout in callback of the statemachine or give cellulardevice in constructor?
-    //_cellularDevice->set_timeout(TIMEOUT_POWER_ON);
+    _cellularDevice->set_timeout(TIMEOUT_POWER_ON);
     tr_info("Cellular power ON (timeout %d ms)", TIMEOUT_POWER_ON);
     if (power_on()) {
         enter_to_state(STATE_DEVICE_READY);
@@ -369,7 +360,7 @@ bool CellularStateMachine::device_ready()
 
 void CellularStateMachine::state_device_ready()
 {
-    //_cellularDevice->set_timeout(TIMEOUT_POWER_ON);
+    _cellularDevice->set_timeout(TIMEOUT_POWER_ON);
     tr_info("state_device_ready");
     if (_power->set_at_mode() == NSAPI_ERROR_OK) {
         tr_info("state_device_ready, set_at_mode success");
@@ -392,7 +383,7 @@ void CellularStateMachine::state_mux()
 
 void CellularStateMachine::state_sim_pin()
 {
-    //_cellularDevice->set_timeout(TIMEOUT_SIM_PIN);
+    _cellularDevice->set_timeout(TIMEOUT_SIM_PIN);
     tr_info("Sim state (timeout %d ms)", TIMEOUT_SIM_PIN);
     if (open_sim()) {
         enter_to_state(STATE_REGISTERING_NETWORK);
@@ -417,12 +408,14 @@ void CellularStateMachine::registering_urcs()
             retry_state_or_fail();
             return;
         }
+        _urcs_set = true;
+        tr_info("registering urc's done");
     }
 }
 
 void CellularStateMachine::state_registering()
 {
-    //_cellularDevice->set_timeout(TIMEOUT_NETWORK);
+    _cellularDevice->set_timeout(TIMEOUT_NETWORK);
 
     registering_urcs();
 
@@ -434,7 +427,7 @@ void CellularStateMachine::state_registering()
         nsapi_error_t err = is_automatic_registering(auto_reg);
         if (err == NSAPI_ERROR_OK && !auto_reg) { // when we support plmn add this :  || plmn
             // automatic registering is not on, set registration and retry
-            //_cellularDevice->set_timeout(TIMEOUT_REGISTRATION);
+            _cellularDevice->set_timeout(TIMEOUT_REGISTRATION);
             set_network_registration();
         }
         retry_state_or_fail();
@@ -443,7 +436,7 @@ void CellularStateMachine::state_registering()
 
 void CellularStateMachine::state_attaching()
 {
-    //_cellularDevice->set_timeout(TIMEOUT_CONNECT);
+    _cellularDevice->set_timeout(TIMEOUT_CONNECT);
     CellularNetwork::AttachStatus attach_status;
     if (get_attach_network(attach_status)) {
         if (attach_status == CellularNetwork::Attached) {
@@ -459,7 +452,7 @@ void CellularStateMachine::state_attaching()
 
 void CellularStateMachine::state_connect_to_network()
 {
-    //_cellularDevice->set_timeout(TIMEOUT_CONNECT);
+    _cellularDevice->set_timeout(TIMEOUT_CONNECT);
     tr_info("Connect to cellular network (timeout %d ms)", TIMEOUT_CONNECT);
     if (_network->connect() == NSAPI_ERROR_OK) {
         //_cellularDevice->set_timeout(TIMEOUT_NETWORK);
@@ -473,7 +466,7 @@ void CellularStateMachine::state_connect_to_network()
 
 void CellularStateMachine::state_connected()
 {
-    //_cellularDevice->set_timeout(TIMEOUT_NETWORK);
+    _cellularDevice->set_timeout(TIMEOUT_NETWORK);
     tr_debug("Cellular ready! (timeout %d ms)", TIMEOUT_NETWORK);
     if (_status_callback) {
         _status_callback(_state, _next_state, NSAPI_ERROR_OK);
@@ -570,7 +563,6 @@ void CellularStateMachine::attach(mbed::Callback<void(nsapi_event_t, intptr_t)> 
 
 void CellularStateMachine::network_callback(nsapi_event_t ev, intptr_t ptr)
 {
-
     tr_info("FSM: network_callback called with event: %d, intptr: %d", ev, ptr);
     if ((cellular_connection_status_t)ev == CellularRegistrationStatusChanged && _state == STATE_REGISTERING_NETWORK) {
         // expect packet data so only these states are valid

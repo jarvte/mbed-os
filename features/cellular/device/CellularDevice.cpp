@@ -21,8 +21,13 @@
 namespace mbed
 {
 
-CellularDevice::CellularDevice() : _state_machine(0), _fh(0)
+CellularDevice::CellularDevice() : _state_machine(0)
 {
+}
+
+CellularDevice::~CellularDevice()
+{
+    delete _state_machine;
 }
 
 nsapi_error_t CellularDevice::init(FileHandle *fh, events::EventQueue &queue)
@@ -34,14 +39,12 @@ nsapi_error_t CellularDevice::init(FileHandle *fh, events::EventQueue &queue)
         tr_error("Could not create power");
         return NSAPI_ERROR_NO_MEMORY;
     }
-    _state_machine = new CellularStateMachine(power, queue);
+    _state_machine = new CellularStateMachine(power, queue, this);
 
     if (!_state_machine) {
         tr_error("Could not create state machine");
         return NSAPI_ERROR_NO_MEMORY;
     }
-
-    _fh = fh;
 
     return NSAPI_ERROR_OK;
 }

@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-#include "QUECTEL_BG96_CellularPower.h"
+#include <GEMALTO_ELS61_CellularPower.h>
 
-#define DEVICE_READY_URC "CPIN:"
+#define DEVICE_READY_URC "+PBREADY"
 
 using namespace mbed;
 
-QUECTEL_BG96_CellularPower::QUECTEL_BG96_CellularPower(ATHandler &atHandler) : AT_CellularPower(atHandler)
+GEMALTO_ELS61_CellularPower::GEMALTO_ELS61_CellularPower(ATHandler &atHandler) : AT_CellularPower(atHandler)
 {
 }
 
-nsapi_error_t QUECTEL_BG96_CellularPower::set_device_ready_urc_cb(Callback<void()> callback)
+nsapi_error_t GEMALTO_ELS61_CellularPower::set_device_ready_urc_cb(Callback<void()> callback)
 {
     return _at.set_urc_handler(DEVICE_READY_URC, callback);
 }
 
-void QUECTEL_BG96_CellularPower::remove_device_ready_urc_cb(Callback<void()> callback)
+void GEMALTO_ELS61_CellularPower::remove_device_ready_urc_cb(Callback<void()> callback)
 {
     _at.remove_urc_handler(DEVICE_READY_URC, callback);
 }

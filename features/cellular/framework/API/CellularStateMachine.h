@@ -21,7 +21,9 @@
 #include "CellularTargets.h"
 #if defined(CELLULAR_DEVICE) || defined(DOXYGEN_ONLY)
 
-#include "NetworkInterface.h"
+
+
+//#include "NetworkInterface.h"
 #include "EventQueue.h"
 #include "Thread.h"
 
@@ -30,10 +32,10 @@
 #include "CellularSIM.h"
 #include "CellularUtil.h"
 
-// modem type is defined as CELLULAR_DEVICE macro
-//#include CELLULAR_STRINGIFY(CELLULAR_DEVICE.h)
 
 namespace mbed {
+
+class CellularDevice;
 
 const int MAX_PIN_SIZE = 8;
 const int MAX_RETRY_ARRAY_SIZE2 = 10;
@@ -48,7 +50,7 @@ public:
     /** Power needed blaa blaa
      *
      */
-    CellularStateMachine(CellularPower *power, events::EventQueue &queue);
+    CellularStateMachine(CellularPower *power, events::EventQueue &queue, CellularDevice *device);
     virtual ~CellularStateMachine();
 
 public:
@@ -121,9 +123,6 @@ public:
      */
     void set_retry_timeout_array(uint16_t timeout[], int array_len);
 
-    CellularSIM* get_sim();
-    CellularNetwork* get_network();
-
     const char* get_state_string(CellularState state);
 private:
     bool power_on();
@@ -163,6 +162,7 @@ private:
     Callback<bool(int, int, int)> _status_callback;
     Callback<void(nsapi_event_t, intptr_t)> _event_status_cb;
 
+    CellularDevice* _cellularDevice;
     CellularNetwork *_network;
     CellularPower *_power;
     CellularSIM *_sim;

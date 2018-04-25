@@ -59,13 +59,38 @@ nsapi_error_t AT_CellularNetwork::init()
 
     for (int type = 0; type < CellularNetwork::C_MAX; type++) {
         if (has_registration((RegistrationType)type)) {
+            tr_info("AT_CellularNetwork::init(): setting urc handler for type: %d", type);
             if (_at.set_urc_handler(at_reg[type].urc_prefix, _urc_funcs[type]) != NSAPI_ERROR_OK) {
                 return NSAPI_ERROR_NO_MEMORY;
             }
         }
     }
 
-    return _at.set_urc_handler("NO CARRIER", callback(this, &AT_CellularNetwork::urc_no_carrier));
+    nsapi_error_t err = _at.set_urc_handler("NO CARRIER", callback(this, &AT_CellularNetwork::urc_no_carrier));
+
+    if (err == NSAPI_ERROR_OK) {
+        err = set_at_mode();
+    }
+
+    return err;
+}
+
+// TODO: use power class set_at_mode or create one to athandler
+// in case of mux we need to set at mode for each channel to stop echoing...
+nsapi_error_t AT_CellularNetwork::set_at_mode()
+{
+    _at.lock();
+    _at.flush();
+    _at.cmd_start("ATE0"); // echo off
+    _at.cmd_stop();
+    _at.resp_start();
+    _at.resp_stop();
+
+    _at.cmd_start("AT+CMEE=1"); // verbose responses
+    _at.cmd_stop();
+    _at.resp_start();
+    _at.resp_stop();
+    return _at.unlock_return_error();
 }
 
 void AT_CellularNetwork::free_credentials()
@@ -652,14 +677,12 @@ nsapi_error_t AT_CellularNetwork::set_registration(const char *plmn)
 {
     _at.lock();
 
-    _at.enable_debug(true);
     if (!plmn) {
         tr_info("Automatic network registration");
         _at.cmd_start("AT+COPS?");
         _at.cmd_stop();
         _at.resp_start("+COPS:");
         int mode = _at.read_int();
-        tr_info("Automatic network registration, COPS mode: %d", mode);
         _at.resp_stop();
         if (mode != 0) {
             _at.clear_error();
@@ -676,8 +699,6 @@ nsapi_error_t AT_CellularNetwork::set_registration(const char *plmn)
         _at.resp_start();
         _at.resp_stop();
     }
-
-    _at.enable_debug(false);
 
     return _at.unlock_return_error();
 }
@@ -723,7 +744,6 @@ nsapi_error_t AT_CellularNetwork::get_registration_status(RegistrationType type,
     }
 
     _at.lock();
-
     const char *rsp[] = { "+CEREG:", "+CGREG:", "+CREG:"};
     _at.cmd_start(at_reg[i].cmd);
     _at.write_string("?", false);

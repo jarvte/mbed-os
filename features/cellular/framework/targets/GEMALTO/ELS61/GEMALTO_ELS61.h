@@ -31,6 +31,7 @@ public:
 
 public: // CellularDevice
     virtual CellularNetwork *open_network(FileHandle *fh);
+    virtual CellularPower *open_power(FileHandle *fh);
 };
 } // namespace mbed
 #endif // GEMALTO_ELS61_H_

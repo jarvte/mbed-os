@@ -46,7 +46,7 @@ public:
 
     /** virtual Destructor
      */
-    virtual ~CellularDevice() {};
+    virtual ~CellularDevice();
 
 public:
 
@@ -128,10 +128,9 @@ public:
      */
     virtual void close_multiplexer() = 0;
 
-    /** Closes the given interface. If null, then all interfaces are closed.
-     *  @param iface interface to be closed
+    /** Closes all interfaces.
      */
-    virtual void close_interface(void* iface) = 0;
+    virtual void close_all_interfaces() = 0;
 
     /** Set the default response timeout.
      *
@@ -154,8 +153,6 @@ public:
 private:
 
     CellularStateMachine* _state_machine;
-    FileHandle* _fh;
-    events::EventQueue _queue;
 };
 
 } // namespace mbed

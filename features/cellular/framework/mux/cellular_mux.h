@@ -33,12 +33,11 @@
 #define MBED_CONF_MUX_DLCI_COUNT  3u   /* Number of supported DLCI IDs. */
 #endif
 #ifndef MBED_CONF_MUX_BUFFER_SIZE
-#define MBED_CONF_MUX_BUFFER_SIZE 31u  /* Size of TX/Rx buffers in number of bytes. */
+#define MBED_CONF_MUX_BUFFER_SIZE 104u  /* Size of TX/Rx buffers in number of bytes. */
 #endif
 
 /* More RAM needs to allocated if more than 4 DLCI ID to be supported see @ref tx_callback_context for details. */
 MBED_STATIC_ASSERT(MBED_CONF_MUX_DLCI_COUNT <= 4u, "");
-
 
 /* @todo:
 I assume that we need to export some kind of #defines for EVENT_SIZE and MAX_EVENT_COUNT (max number of events that can
@@ -536,7 +535,7 @@ private:
         int timer_id;                   /* Timer id. */
         union {
             uint32_t align_4_byte;                      /* Force 4-byte alignment. */
-            uint8_t  buffer[MBED_CONF_MUX_BUFFER_SIZE]; /* Rx buffer. */
+            uint8_t  buffer[MBED_CONF_MUX_BUFFER_SIZE]; /* Tx buffer. */
         };
         uint8_t retransmit_counter;     /* Frame retransmission counter. */
         uint8_t bytes_remaining;        /* Bytes remaining in the buffer to write. */

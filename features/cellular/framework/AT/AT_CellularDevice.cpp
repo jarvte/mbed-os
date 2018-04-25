@@ -31,12 +31,7 @@ AT_CellularDevice::AT_CellularDevice(EventQueue &queue) :
 
 AT_CellularDevice::~AT_CellularDevice()
 {
-    close_network();
-    close_sms();
-    close_power();
-    close_sim();
-    close_information();
-    close_multiplexer();
+    close_all_interfaces();
 
     ATHandler *atHandler = _atHandlers;
     while (atHandler) {
@@ -238,22 +233,14 @@ void AT_CellularDevice::close_information()
     }
 }
 
-void AT_CellularDevice::close_interface(void* iface)
+void AT_CellularDevice::close_all_interfaces()
 {
-    if (iface == NULL) {
-        close_network();
-        close_sms();
-        close_power();
-        close_sim();
-        close_information();
-        close_multiplexer();
-        return;
-    }
-
-    AT_CellularBase* base = (AT_CellularBase*)iface;
-    release_at_handler(&base->get_at_handler());
-    delete base;
-    base = NULL;
+    close_network();
+    close_sms();
+    close_power();
+    close_sim();
+    close_information();
+    close_multiplexer();
 }
 
 void AT_CellularDevice::set_timeout(int timeout)

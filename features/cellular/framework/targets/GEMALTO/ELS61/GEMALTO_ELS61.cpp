@@ -17,6 +17,7 @@
 
 #include "GEMALTO_ELS61_CellularNetwork.h"
 #include "GEMALTO_CINTERION_CellularStack.h"
+#include "GEMALTO_ELS61_CellularPower.h"
 #include "GEMALTO_ELS61.h"
 
 using namespace mbed;
@@ -33,7 +34,27 @@ GEMALTO_ELS61::~GEMALTO_ELS61()
 CellularNetwork *GEMALTO_ELS61::open_network(FileHandle *fh)
 {
     if (!_network) {
-        _network = new GEMALTO_ELS61_CellularNetwork(*get_at_handler(fh));
+        ATHandler *atHandler = get_at_handler(fh);
+        if (atHandler) {
+            _network = new GEMALTO_ELS61_CellularNetwork(*atHandler);
+            if (!_network) {
+                release_at_handler(atHandler);
+            }
+        }
     }
     return _network;
+}
+
+CellularPower *GEMALTO_ELS61::open_power(FileHandle *fh)
+{
+    if (!_power) {
+        ATHandler *atHandler = get_at_handler(fh);
+        if (atHandler) {
+            _power = new GEMALTO_ELS61_CellularPower(*atHandler);
+            if (!_power) {
+                release_at_handler(atHandler);
+            }
+        }
+    }
+    return _power;
 }

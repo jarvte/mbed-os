@@ -149,6 +149,8 @@ private:
     void urc_cereg();
     void urc_cgreg();
 
+    nsapi_error_t set_at_mode();
+
     nsapi_error_t set_context_to_be_activated();
     nsapi_ip_stack_t string_to_stack_type(const char* pdp_type);
 

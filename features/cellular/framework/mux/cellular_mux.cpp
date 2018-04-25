@@ -194,7 +194,7 @@ void Mux::dm_response_construct()
 
 void Mux::on_rx_frame_sabm()
 {
-    /* Peer iniated open/establishment is not supported. */
+    /* Peer initiated open/establishment is not supported. */
     rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
@@ -268,12 +268,10 @@ void Mux::on_rx_frame_dm()
     rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
-
 void Mux::tx_internal_resp_entry_run()
 {
     write_do();
 }
-
 
 void Mux::dm_response_send()
 {
@@ -281,11 +279,9 @@ void Mux::dm_response_send()
     tx_state_change(TX_INTERNAL_RESP, &Mux::tx_internal_resp_entry_run, &Mux::tx_idle_exit_run);
 }
 
-
 void Mux::on_rx_frame_disc()
 {
     /* Follow the specification: DM response generated for those DLCI IDs which are not established. */
-
     switch (_tx_context.tx_state) {
             uint8_t dlci_id;
             bool    is_cr_bit_clear;
@@ -319,7 +315,6 @@ void Mux::on_rx_frame_disc()
     rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
-
 void Mux::on_rx_frame_uih()
 {
     const uint8_t length = (_rx_context.buffer[FRAME_LENGTH_FIELD_INDEX] >> 1);
@@ -338,7 +333,6 @@ void Mux::on_rx_frame_uih()
                 MuxDataService* obj = file_handle_get(dlci_id);
                 if (obj != NULL) {
                     /* Established DLCI exists, proceed with processing. */
-
                     _state.is_user_rx_ready = 1u;
                     _rx_context.offset      = 0;
                     _rx_context.read_length = length;
@@ -356,12 +350,10 @@ void Mux::on_rx_frame_uih()
     rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
 
-
 void Mux::on_rx_frame_not_supported()
 {
     rx_state_change(RX_HEADER_READ, &Mux::rx_header_read_entry_run);
 }
-
 
 Mux::FrameRxType Mux::frame_rx_type_resolve()
 {
@@ -382,7 +374,6 @@ Mux::FrameRxType Mux::frame_rx_type_resolve()
     }
 }
 
-
 void Mux::tx_state_change(TxState new_state, tx_state_entry_func_t entry_func, tx_state_exit_func_t exit_func)
 {
     (this->*exit_func)();
@@ -390,20 +381,17 @@ void Mux::tx_state_change(TxState new_state, tx_state_entry_func_t entry_func, t
     (this->*entry_func)();
 }
 
-
 void Mux::event_queue_enqueue()
 {
     const int id = _event_q->call(this, &Mux::on_deferred_call);
     MBED_ASSERT(id != 0);
 }
 
-
 void Mux::tx_retransmit_done_entry_run()
 {
     _tx_context.timer_id = _event_q->call_in(T1_TIMER_VALUE, this, &Mux::on_timeout);
     MBED_ASSERT(_tx_context.timer_id != 0);
 }
-
 
 bool Mux::is_dlci_in_use(uint8_t dlci_id)
 {
@@ -416,7 +404,6 @@ bool Mux::is_dlci_in_use(uint8_t dlci_id)
 
     return false;
 }
-
 
 void Mux::on_post_tx_frame_sabm()
 {
@@ -431,7 +418,6 @@ void Mux::on_post_tx_frame_sabm()
     }
 }
 
-
 void Mux::pending_self_iniated_mux_open_start()
 {
     /* Construct the frame, start the tx sequence, set and reset relevant state contexts. */
@@ -442,7 +428,6 @@ void Mux::pending_self_iniated_mux_open_start()
     tx_state_change(TX_RETRANSMIT_ENQUEUE, &Mux::tx_retransmit_enqueu_entry_run, &Mux::tx_idle_exit_run);
     _tx_context.retransmit_counter = RETRANSMIT_COUNT;
 }
-
 
 void Mux::pending_self_iniated_dlci_open_start()
 {
@@ -455,12 +440,10 @@ void Mux::pending_self_iniated_dlci_open_start()
     _tx_context.retransmit_counter = RETRANSMIT_COUNT;
 }
 
-
 void Mux::tx_idle_exit_run()
 {
     _tx_context.offset = 0;
 }
-
 
 uint8_t Mux::tx_callback_index_advance()
 {
@@ -478,18 +461,15 @@ uint8_t Mux::tx_callback_index_advance()
     return index;
 }
 
-
 uint8_t Mux::tx_callback_pending_mask_get()
 {
     return (_tx_context.tx_callback_context & 0x0Fu);
 }
 
-
 void Mux::tx_callback_pending_bit_clear(uint8_t bit)
 {
     _tx_context.tx_callback_context &= ~bit;
 }
-
 
 void Mux::tx_callback_pending_bit_set(uint8_t dlci_id)
 {
@@ -511,7 +491,6 @@ void Mux::tx_callback_pending_bit_set(uint8_t dlci_id)
     _tx_context.tx_callback_context |= bit;
 }
 
-
 MuxDataService& Mux::tx_callback_lookup(uint8_t bit)
 {
     uint8_t i         = 0;
@@ -531,13 +510,11 @@ MuxDataService& Mux::tx_callback_lookup(uint8_t bit)
     return *_mux_objects[i];
 }
 
-
 void Mux::tx_callback_dispatch(uint8_t bit)
 {
     MuxDataService& obj = tx_callback_lookup(bit);
     obj._sigio_cb();
 }
-
 
 void Mux::tx_callbacks_run()
 {
@@ -579,7 +556,6 @@ void Mux::tx_callbacks_run()
     }
 }
 
-
 void Mux::tx_idle_entry_run()
 {
     if (_state.is_mux_open_pending) {
@@ -601,7 +577,6 @@ void Mux::tx_idle_entry_run()
     }
 }
 
-
 void Mux::on_post_tx_frame_dm()
 {
     switch (_tx_context.tx_state) {
@@ -615,7 +590,6 @@ void Mux::on_post_tx_frame_dm()
     }
 }
 
-
 void Mux::on_post_tx_frame_uih()
 {
     switch (_tx_context.tx_state) {
@@ -628,7 +602,6 @@ void Mux::on_post_tx_frame_uih()
             break;
     }
 }
-
 
 Mux::FrameTxType Mux::frame_tx_type_resolve()
 {
@@ -646,12 +619,10 @@ Mux::FrameTxType Mux::frame_tx_type_resolve()
     }
 }
 
-
 void Mux::null_action()
 {
 
 }
-
 
 void Mux::rx_header_read_entry_run()
 {
@@ -659,13 +630,11 @@ void Mux::rx_header_read_entry_run()
     _rx_context.read_length = FRAME_HEADER_READ_LEN;
 }
 
-
 void Mux::rx_state_change(RxState new_state, rx_state_entry_func_t entry_func)
 {
     (this->*entry_func)();
     _rx_context.rx_state = new_state;
 }
-
 
 ssize_t Mux::on_rx_read_state_frame_start()
 {
@@ -684,7 +653,6 @@ ssize_t Mux::on_rx_read_state_frame_start()
 
     return read_err;
 }
-
 
 ssize_t Mux::on_rx_read_state_header_read()
 {
@@ -725,7 +693,6 @@ ssize_t Mux::on_rx_read_state_header_read()
     return read_err;
 }
 
-
 bool Mux::is_rx_fcs_valid()
 {
     const uint8_t expected_fcs = fcs_calculate(&(_rx_context.buffer[FRAME_ADDRESS_FIELD_INDEX]), FCS_INPUT_LEN);
@@ -734,7 +701,6 @@ bool Mux::is_rx_fcs_valid()
 
     return (expected_fcs == actual_fcs);
 }
-
 
 ssize_t Mux::on_rx_read_state_trailer_read()
 {
@@ -773,12 +739,10 @@ ssize_t Mux::on_rx_read_state_trailer_read()
     return read_err;
 }
 
-
 ssize_t Mux::on_rx_read_state_suspend()
 {
     return -EAGAIN;
 }
-
 
 void Mux::rx_event_do(RxEvent event)
 {
@@ -812,7 +776,6 @@ void Mux::rx_event_do(RxEvent event)
             break;
     }
 }
-
 
 void Mux::write_do()
 {
@@ -851,33 +814,27 @@ void Mux::write_do()
     }
 }
 
-
 void Mux::on_deferred_call()
 {
     _mutex.lock();
-
     _state.is_system_thread_context = 1u;
 
     rx_event_do(RX_READ);
     write_do();
 
     _state.is_system_thread_context = 0;
-
     _mutex.unlock();
 }
-
 
 void Mux::on_sigio()
 {
     event_queue_enqueue();
 }
 
-
 void Mux::eventqueue_attach(EventQueue *event_queue)
 {
     _event_q = event_queue;
 }
-
 
 void Mux::serial_attach(FileHandle *serial)
 {
@@ -886,7 +843,6 @@ void Mux::serial_attach(FileHandle *serial)
     _serial->sigio(callback(this, &Mux::on_sigio));
     _serial->set_blocking(false);
 }
-
 
 uint8_t Mux::fcs_calculate(const uint8_t *buffer,  uint8_t input_len)
 {
@@ -902,7 +858,6 @@ uint8_t Mux::fcs_calculate(const uint8_t *buffer,  uint8_t input_len)
     return fcs;
 }
 
-
 void Mux::sabm_request_construct(uint8_t dlci_id)
 {
     frame_hdr_t *frame_hdr =
@@ -917,7 +872,6 @@ void Mux::sabm_request_construct(uint8_t dlci_id)
     _tx_context.bytes_remaining = SABM_FRAME_LEN;
 }
 
-
 bool Mux::is_dlci_q_full()
 {
     const uint8_t end = sizeof(_mux_objects) / sizeof(_mux_objects[0]);
@@ -929,7 +883,6 @@ bool Mux::is_dlci_q_full()
 
     return true;
 }
-
 
 void Mux::dlci_id_append(uint8_t dlci_id)
 {
@@ -949,7 +902,6 @@ void Mux::dlci_id_append(uint8_t dlci_id)
     MBED_ASSERT(i != end);
 }
 
-
 MuxDataService * Mux::file_handle_get(uint8_t dlci_id)
 {
     MuxDataService* obj = NULL;
@@ -964,7 +916,6 @@ MuxDataService * Mux::file_handle_get(uint8_t dlci_id)
 
     return obj;
 }
-
 
 Mux::MuxReturnStatus Mux::dlci_establish(uint8_t dlci_id, MuxEstablishStatus &status, FileHandle **obj)
 {
@@ -1048,12 +999,10 @@ Mux::MuxReturnStatus Mux::dlci_establish(uint8_t dlci_id, MuxEstablishStatus &st
     return MUX_STATUS_SUCCESS;
 }
 
-
 void Mux::tx_retransmit_enqueu_entry_run()
 {
     write_do();
 }
-
 
 Mux::MuxReturnStatus Mux::mux_start(Mux::MuxEstablishStatus &status)
 {
@@ -1116,7 +1065,6 @@ Mux::MuxReturnStatus Mux::mux_start(Mux::MuxEstablishStatus &status)
     return MUX_STATUS_SUCCESS;
 }
 
-
 void Mux::user_information_construct(uint8_t dlci_id, const void* buffer, size_t size)
 {
     frame_hdr_t *frame_hdr =
@@ -1135,12 +1083,10 @@ void Mux::user_information_construct(uint8_t dlci_id, const void* buffer, size_t
     _tx_context.bytes_remaining = UIH_FRAME_MIN_LEN + size;
 }
 
-
 void Mux::tx_noretransmit_entry_run()
 {
     write_do();
 }
-
 
 ssize_t Mux::user_data_tx(uint8_t dlci_id, const void* buffer, size_t size)
 {
@@ -1193,7 +1139,7 @@ ssize_t Mux::user_data_tx(uint8_t dlci_id, const void* buffer, size_t size)
 
             break;
         default:
-            /* TX allready in use, set TX callback pending and inform caller by return value that no action was taken.
+            /* TX already in use, set TX callback pending and inform caller by return value that no action was taken.
              */
             tx_callback_pending_bit_set(dlci_id);
             write_ret = 0;
@@ -1206,17 +1152,14 @@ ssize_t Mux::user_data_tx(uint8_t dlci_id, const void* buffer, size_t size)
     return write_ret;
 }
 
-
 size_t Mux::min(uint8_t size_1, size_t size_2)
 {
     return (size_1 < size_2) ? size_1 : size_2;
 }
 
-
 ssize_t Mux::user_data_rx(void* buffer, size_t size)
 {
     MBED_ASSERT(buffer != NULL);
-
     _mutex.lock();
 
     if (_state.is_user_rx_ready) {
@@ -1240,7 +1183,6 @@ ssize_t Mux::user_data_rx(void* buffer, size_t size)
         return -EAGAIN;
     }
 }
-
 
 short Mux::poll()
 {
