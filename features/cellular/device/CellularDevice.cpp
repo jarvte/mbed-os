@@ -207,4 +207,9 @@ bool CellularDevice::state_machine_callback(int state, int next_state, int error
     return true;
 }
 
+const char* get_sim_pin() const
+{
+
+}
+
 } // namespace mbed

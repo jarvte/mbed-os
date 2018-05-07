@@ -220,7 +220,8 @@ public:
      *  @return The underlying NetworkStack object
      */
     virtual NetworkStack *get_stack();
-
+protected:
+    const char* get_sim_pin() const;
 private:
 
     void network_callback(nsapi_event_t ev, intptr_t ptr);

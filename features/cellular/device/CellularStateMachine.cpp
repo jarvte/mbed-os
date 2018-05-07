@@ -123,6 +123,9 @@ bool CellularStateMachine::open_sim()
             tr_info("SIM Ready");
             break;
         case CellularSIM::SimStatePinNeeded: {
+
+            // query sim from the CellularDevice/application
+            char* sim_pin =
             if (strlen(_sim_pin)) {
                 tr_info("SIM pin required, entering pin: %s", _sim_pin);
                 nsapi_error_t err = _sim->set_pin(_sim_pin);

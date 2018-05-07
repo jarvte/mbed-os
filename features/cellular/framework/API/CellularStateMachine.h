@@ -77,6 +77,7 @@ public:
      */
     void set_callback(Callback<bool(int, int, int)> status_callback);
 
+    void set_sim_callback();
     /** Register callback for status reporting
      *
      *  The specified status callback function will be called on status changes
