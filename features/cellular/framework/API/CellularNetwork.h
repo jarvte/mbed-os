@@ -18,8 +18,8 @@
 #ifndef CELLULAR_NETWORK_H_
 #define CELLULAR_NETWORK_H_
 
-#include "NetworkInterface.h"
 #include "CellularList.h"
+#include "NetworkStack.h"
 
 namespace mbed {
 
@@ -35,7 +35,7 @@ const int MAX_OPERATOR_NAME_SHORT = 8;
  *
  *  An abstract interface for connecting to a network and getting information from it.
  */
-class CellularNetwork : public NetworkInterface
+class CellularNetwork
 {
 protected:
     // friend of CellularDevice so that it's the only way to close/delete this class.
@@ -378,6 +378,7 @@ public:
     virtual nsapi_error_t connect(const char *apn,
                                   const char *username = 0, const char *password = 0) = 0;
 
+    virtual nsapi_error_t disconnect() = 0;
     /** Finds the correct PDP context and activates it. If correct PDP context is not found, one is created.
      *  Given APN (or not given) and stack type (IPv4/IPv6/dual) are influencing when finding the PDP context.
      *
@@ -478,6 +479,8 @@ public:
      *  @return             zero on success
      */
     virtual nsapi_error_t get_operator_names(operator_names_list &op_names) = 0;
+
+    virtual NetworkStack *get_stack() = 0;
 };
 
 } // namespace mbed

@@ -20,7 +20,14 @@
 #include "CellularUtil.h"
 #ifdef CELLULAR_DEVICE
 #include CELLULAR_STRINGIFY(CELLULAR_DEVICE.h)
-typedef CELLULAR_DEVICE OnboardCellularInterface;
+// temporary wrapper before we get NetworkInterface::get_default_instance()
+static events::EventQueue queue;
+using namespace mbed;
+class CellularWrapper : public CELLULAR_DEVICE {
+public:
+    CellularWrapper() : CELLULAR_DEVICE(queue) {};
+};
+typedef CellularWrapper OnboardCellularInterface;
 #elif MODEM_ON_BOARD && MODEM_ON_BOARD_UART && NSAPI_PPP_AVAILABLE
 
 #include "UARTCellularInterface.h"

@@ -18,12 +18,17 @@
 #include "CellularDevice.h"
 #include "CellularLog.h"
 #include "UARTSerial.h"
+#include "nsapi_ppp.h"
+
+#ifndef MBED_CONF_APP_SIM_PIN_CODE
+# define MBED_CONF_APP_SIM_PIN_CODE    "1234"
+#endif
 
 namespace mbed
 {
 
-CellularDevice::CellularDevice() : _state_machine(0), _is_connected(false), _nw_status_cb(0), _fh(0), _queue(0),
-        _blocking(true), _target_state(CellularStateMachine::STATE_POWER_ON), _cellularSemaphore(0)
+CellularDevice::CellularDevice(events::EventQueue *at_queue) : _state_machine(0), _is_connected(false), _nw_status_cb(0), _fh(0), _queue(0),
+        _blocking(true), _target_state(CellularStateMachine::STATE_POWER_ON), _cellularSemaphore(0), _at_queue(at_queue)
 {
 }
 
@@ -46,7 +51,12 @@ nsapi_error_t CellularDevice::init(FileHandle *fh, events::EventQueue *queue)
         return NSAPI_ERROR_NO_MEMORY;
     }
     _state_machine = new CellularStateMachine(power, *queue, this);
+    _state_machine->set_sim_callback(callback(this, &CellularDevice::sim_pin_callback));
+    _state_machine->set_callback(callback(this, &CellularDevice::state_machine_callback));
+    _state_machine->attach(callback(this, &CellularDevice::network_callback));
+    _state_machine->start_dispatch();
 
+    _at_queue->chain(queue);
     if (!_state_machine) {
         tr_error("Could not create state machine");
         return NSAPI_ERROR_NO_MEMORY;
@@ -128,29 +138,25 @@ bool CellularDevice::is_connected()
 
 const char *CellularDevice::get_ip_address()
 {
-    CellularNetwork *network = open_network(_fh);
-    if (!network) {
-        return NULL;
+#if NSAPI_PPP_AVAILABLE
+    return nsapi_ppp_get_ip_addr(_fh);
+#else
+    NetworkStack *st = get_stack();
+    if (st) {
+        return st->get_ip_address();
     }
-    return network->get_ip_address();
+    return NULL;
+#endif
 }
 
 const char *CellularDevice::get_netmask()
 {
-    CellularNetwork *network = open_network(_fh);
-    if (!network) {
-        return NULL;
-    }
-    return network->get_netmask();
+    return NULL;
 }
 
 const char *CellularDevice::get_gateway()
 {
-    CellularNetwork *network = open_network(_fh);
-    if (!network) {
-        return NULL;
-    }
-    return network->get_gateway();
+    return NULL;
 }
 
 nsapi_error_t CellularDevice::set_blocking(bool blocking)
@@ -159,9 +165,24 @@ nsapi_error_t CellularDevice::set_blocking(bool blocking)
     return NSAPI_ERROR_OK;
 }
 
+NetworkStack *CellularDevice::get_stack()
+{
+    tr_info("CellularDevice::get_stack()");
+    return open_network(_fh)->get_stack();
+}
+
 void CellularDevice::attach(Callback<void(nsapi_event_t, intptr_t)> status_cb)
 {
     _nw_status_cb = status_cb;
+}
+
+char* CellularDevice::sim_pin_callback(CellularSIM::SimState state)
+{
+    if (state == CellularSIM::SimStatePinNeeded) {
+        return MBED_CONF_APP_SIM_PIN_CODE;
+    }
+
+    return NULL;
 }
 
 void CellularDevice::network_callback(nsapi_event_t ev, intptr_t ptr)
@@ -191,14 +212,14 @@ bool CellularDevice::state_machine_callback(int state, int next_state, int error
         // got from mux. Now that we don't have mux we just create sim and power.
         CellularSIM* sim = open_sim(_fh);
         CellularNetwork* nw = open_network(_fh);
-        nsapi_error_t* err = nw->init();
+        nsapi_error_t err = nw->init();
         _state_machine->set_sim_and_network(sim, nw);
         return true;
     }
 
 
     if (_target_state == state) {
-        tr_info("Target state reached: %s", _cellularConnectionFSM.get_state_string(_target_state));
+        tr_info("Target state reached: %s", _state_machine->get_state_string(_target_state));
         MBED_ASSERT(_cellularSemaphore.release() == osOK);
         return false; // return false -> state machine is halted
     }
@@ -207,9 +228,6 @@ bool CellularDevice::state_machine_callback(int state, int next_state, int error
     return true;
 }
 
-const char* get_sim_pin() const
-{
 
-}
 
 } // namespace mbed

@@ -22,7 +22,7 @@ using namespace mbed;
 
 #define DEFAULT_AT_TIMEOUT 1000 // at default timeout in milliseconds
 
-AT_CellularDevice::AT_CellularDevice(EventQueue &queue) :
+AT_CellularDevice::AT_CellularDevice(EventQueue &queue) : CellularDevice(&queue),
     _atHandlers(0), _network(0), _sms(0), _sim(0), _power(0), _information(0), _queue(queue),
     _default_timeout(DEFAULT_AT_TIMEOUT), _modem_debug_on(false)
 {

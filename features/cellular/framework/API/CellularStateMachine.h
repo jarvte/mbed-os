@@ -61,11 +61,12 @@ public:
         STATE_MUX,
         STATE_SIM_PIN,
         STATE_REGISTERING_NETWORK,
+        STATE_MANUAL_REGISTERING_NETWORK,
         STATE_ATTACHING_NETWORK,
+        STATE_ACTIVATING_PDP_CONTEXT,
         STATE_CONNECTING_NETWORK,
         STATE_CONNECTED
     };
-
 public:
 
     void set_sim_and_network(CellularSIM* sim, CellularNetwork* nw);
@@ -77,7 +78,10 @@ public:
      */
     void set_callback(Callback<bool(int, int, int)> status_callback);
 
-    void set_sim_callback();
+    /** If one needs to enter SIM pin/puk code it's queried with this callback
+     */
+    void set_sim_callback(Callback<char*(CellularSIM::SimState)> sim_pin_cb);
+
     /** Register callback for status reporting
      *
      *  The specified status callback function will be called on status changes
@@ -120,6 +124,13 @@ public:
      */
     void set_retry_timeout_array(uint16_t timeout[], int array_len);
 
+    /** Sets the operator plmn which is used when registering to a network specified by plmn. If plmn is not set then automatic
+     *  registering is used when registering to a cellular network. Does not start any operations.
+     *
+     *  @param plmn operator in numeric format. See more from 3GPP TS 27.007 chapter 7.3.
+     */
+    void set_plmn(const char* plmn);
+
     const char* get_state_string(CellularState state);
 private:
     bool power_on();
@@ -139,13 +150,15 @@ private:
     void state_mux();
     void state_sim_pin();
     void state_registering();
+    void state_manual_registering_network();
     void state_attaching();
+    void state_activating_pdp_context();
     void state_connect_to_network();
     void state_connected();
     void enter_to_state(CellularState state);
     void retry_state_or_fail();
     void network_callback(nsapi_event_t ev, intptr_t ptr);
-
+    bool is_registered_to_plmn();
 
 private:
     void registering_urcs();
@@ -158,6 +171,7 @@ private:
 
     Callback<bool(int, int, int)> _status_callback;
     Callback<void(nsapi_event_t, intptr_t)> _event_status_cb;
+    Callback<char*(CellularSIM::SimState)> _sim_pin_cb;
 
     CellularDevice* _cellularDevice;
     CellularNetwork *_network;
@@ -174,6 +188,9 @@ private:
     int _retry_array_length;
     int _event_id;
     bool _urcs_set;
+    bool _command_success;
+    const char* _plmn;
+    bool _plmn_network_found;
 };
 
 } // namespace

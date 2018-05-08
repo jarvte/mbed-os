@@ -43,12 +43,16 @@ namespace mbed
 class CellularDevice : public CellularBase
 {
 public:
-    CellularDevice();
+    CellularDevice(events::EventQueue *at_queue);
     /** virtual Destructor
      */
     virtual ~CellularDevice();
 
 public:
+    /** Initializes CellularDevice by creating CellularPower and CelluarStateMachine.
+     *
+     * return zero on success
+     */
     nsapi_error_t init(FileHandle *fh, events::EventQueue *queue);
 
     CellularStateMachine* get_state_machine();
@@ -226,6 +230,7 @@ private:
 
     void network_callback(nsapi_event_t ev, intptr_t ptr);
     bool state_machine_callback(int state, int next_state, int error);
+    char* sim_pin_callback(CellularSIM::SimState state);
 
     CellularStateMachine* _state_machine;
     bool _is_connected;
@@ -237,6 +242,7 @@ private:
 
     CellularStateMachine::CellularState _target_state;
     rtos::Semaphore _cellularSemaphore;
+    events::EventQueue *_at_queue;
 
 };
 

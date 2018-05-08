@@ -118,7 +118,7 @@ void EasyCellularConnection::set_credentials(const char *apn, const char *uname,
             }
 #endif // #if USE_APN_LOOKUP
         } else {
-            //if get_network() returns NULL it means there was not enough memory for 
+            //if get_network() returns NULL it means there was not enough memory for
             //an AT_CellularNetwork element during CellularConnectionFSM initialization
             tr_error("There was not enough memory during CellularConnectionFSM initialization");
         }
@@ -240,31 +240,31 @@ bool EasyCellularConnection::is_connected()
 
 const char *EasyCellularConnection::get_ip_address()
 {
-    CellularNetwork *network = _cellularConnectionFSM.get_network();
-    if (!network) {
+    CellularDevice *device = _cellularConnectionFSM.get_device();
+    if (!device) {
         return NULL;
     }
-    return _cellularConnectionFSM.get_network()->get_ip_address();
+    return device->get_ip_address();
 }
 
 const char *EasyCellularConnection::get_netmask()
 {
-    CellularNetwork *network = _cellularConnectionFSM.get_network();
-    if (!network) {
+    CellularDevice *device = _cellularConnectionFSM.get_device();
+    if (!device) {
         return NULL;
     }
 
-    return network->get_netmask();
+    return device->get_netmask();
 }
 
 const char *EasyCellularConnection::get_gateway()
 {
-    CellularNetwork *network = _cellularConnectionFSM.get_network();
-    if (!network) {
+    CellularDevice *device = _cellularConnectionFSM.get_device();
+    if (!device) {
         return NULL;
     }
 
-    return network->get_gateway();
+    return device->get_gateway();
 }
 
 void EasyCellularConnection::attach(mbed::Callback<void(nsapi_event_t, intptr_t)> status_cb)

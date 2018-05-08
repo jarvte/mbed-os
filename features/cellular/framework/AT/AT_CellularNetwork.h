@@ -56,8 +56,8 @@ public: // NetworkInterface
 
     virtual nsapi_error_t disconnect();
 
-protected:
     virtual NetworkStack *get_stack();
+protected:
 
 public: // CellularNetwork
     virtual nsapi_error_t init();

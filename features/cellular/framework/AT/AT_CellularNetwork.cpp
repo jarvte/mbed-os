@@ -59,6 +59,7 @@ nsapi_error_t AT_CellularNetwork::init()
 
     for (int type = 0; type < CellularNetwork::C_MAX; type++) {
         if (has_registration((RegistrationType)type)) {
+            tr_info("setting urc handler for prefix: %s", at_reg[type].urc_prefix);
             if (_at.set_urc_handler(at_reg[type].urc_prefix, _urc_funcs[type]) != NSAPI_ERROR_OK) {
                 return NSAPI_ERROR_NO_MEMORY;
             }
@@ -116,7 +117,7 @@ void AT_CellularNetwork::read_reg_params_and_compare(RegistrationType type)
 #endif
 
     if (_at.get_last_error() == NSAPI_ERROR_OK && _connection_status_cb) {
-        tr_debug("stat: %d, lac: %d, cellID: %d, act: %d", reg_status, lac, cell_id, act);
+        tr_info("stat: %d, lac: %d, cellID: %d, act: %d", reg_status, lac, cell_id, act);
         if (act != -1 && (RadioAccessTechnology)act != _current_act) {
             _current_act = (RadioAccessTechnology)act;
             _connection_status_cb((nsapi_event_t)CellularRadioAccessTechnologyChanged, _current_act);
@@ -134,19 +135,19 @@ void AT_CellularNetwork::read_reg_params_and_compare(RegistrationType type)
 
 void AT_CellularNetwork::urc_creg()
 {
-    tr_debug("urc_creg");
+    tr_info("urc_creg");
     read_reg_params_and_compare(C_REG);
 }
 
 void AT_CellularNetwork::urc_cereg()
 {
-    tr_debug("urc_cereg");
+    tr_info("urc_cereg");
     read_reg_params_and_compare(C_EREG);
 }
 
 void AT_CellularNetwork::urc_cgreg()
 {
-    tr_debug("urc_cgreg");
+    tr_info("urc_cgreg");
     read_reg_params_and_compare(C_GREG);
 }
 
@@ -621,6 +622,7 @@ nsapi_error_t AT_CellularNetwork::set_registration_urc(RegistrationType type, bo
     } else {
         _at.lock();
         if (urc_on) {
+            tr_info("Settings URC for type: %d and command %s", type, at_reg[index].cmd);
             _at.cmd_start(at_reg[index].cmd);
             _at.write_string("=2", false);
             _at.cmd_stop();
@@ -826,6 +828,7 @@ nsapi_error_t AT_CellularNetwork::get_apn_backoff_timer(int &backoff_timer)
 
 NetworkStack *AT_CellularNetwork::get_stack()
 {
+    tr_info("AT_CellularNetwork::get_stack()");
 #if NSAPI_PPP_AVAILABLE
     // use lwIP/PPP if modem does not have IP stack
     if (!_stack) {
