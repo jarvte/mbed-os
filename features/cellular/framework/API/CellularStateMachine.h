@@ -35,7 +35,6 @@ namespace mbed {
 
 class CellularDevice;
 
-const int MAX_PIN_SIZE = 8;
 const int MAX_RETRY_ARRAY_SIZE2 = 10;
 
 /** CellularStateMachine class
@@ -69,11 +68,13 @@ public:
     };
 public:
 
-    void set_sim_and_network(CellularSIM* sim, CellularNetwork* nw);
+    void set_sim(CellularSIM* sim);
+    void set_network(CellularNetwork* nw);
     void set_power(CellularPower* pwr);
 
+    void set_credentials(const char *apn, const char *uname, const char *pwd);
 
-    /** Set callback for state update
+    /** Set callback for state machine state updates
      *  @param status_callback function to call on state changes
      */
     void set_callback(Callback<bool(int, int, int)> status_callback);
@@ -191,6 +192,10 @@ private:
     bool _command_success;
     const char* _plmn;
     bool _plmn_network_found;
+
+    const char *_apn;
+    const char *_uname;
+    const char *_pwd;
 };
 
 } // namespace

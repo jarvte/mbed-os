@@ -75,6 +75,8 @@ public: // CellularDevice
 
     virtual void close_information();
 
+    virtual void close_all_interfaces();
+
     virtual void set_timeout(int timeout);
 
     virtual uint16_t get_send_delay();

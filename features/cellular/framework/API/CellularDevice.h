@@ -31,6 +31,8 @@
 
 #include "CellularStateMachine.h"
 
+const int MAX_PIN_SIZE = 8;
+
 namespace mbed
 {
 
@@ -112,6 +114,10 @@ public:
      */
     virtual void close_information() = 0;
 
+    /** Closes all interfaces.
+     */
+    virtual void close_all_interfaces() = 0;
+
     /** Set the default response timeout.
      *
      *  @param timeout    milliseconds to wait response from modem
@@ -124,6 +130,12 @@ public:
      */
     virtual void modem_debug_on(bool on) = 0;
 
+    /** Sets the operator plmn which is used when registering to a network specified by plmn. If plmn is not set then automatic
+     *  registering is used when registering to a cellular network. Does not start any operations.
+     *
+     *  @param plmn operator in numeric format. See more from 3GPP TS 27.007 chapter 7.3.
+     */
+    void set_plmn(const char* plmn);
 public:
     /** Set the Cellular network credentials
      *
@@ -243,6 +255,10 @@ private:
     CellularStateMachine::CellularState _target_state;
     rtos::Semaphore _cellularSemaphore;
     events::EventQueue *_at_queue;
+
+    // until we have to support CellularBase we need to store pin, apn, uname and pwd temporarily here
+    char _sim_pin[MAX_PIN_SIZE+1];
+
 
 };
 

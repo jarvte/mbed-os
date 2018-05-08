@@ -46,7 +46,7 @@ CellularStateMachine::CellularStateMachine(CellularPower *power, events::EventQu
          _cellularDevice(device), _network(0),
         _power(power), _sim(0), _queue(queue), _queue_thread(0), _retry_count(0),
         _event_timeout(-1), _event_id(0), _urcs_set(false), _command_success(false),
-        _plmn(0), _plmn_network_found(false)
+        _plmn(0), _plmn_network_found(false), _apn(0), _uname(0), _pwd(0)
 {
 #if MBED_CONF_CELLULAR_RANDOM_MAX_START_DELAY == 0
     _start_time = 0;
@@ -74,16 +74,28 @@ CellularStateMachine::~CellularStateMachine()
     stop();
 }
 
-void CellularStateMachine::set_sim_and_network(CellularSIM* sim, CellularNetwork* nw)
+void CellularStateMachine::set_sim(CellularSIM* sim)
 {
     _sim = sim;
+}
+
+void CellularStateMachine::set_network(CellularNetwork* nw)
+{
     _network = nw;
     _network->attach(callback(this, &CellularStateMachine::network_callback));
+    _network->set_credentials(_apn, _uname, _pwd);
 }
 
 void CellularStateMachine::set_power(CellularPower* pwr)
 {
     _power = pwr;
+}
+
+void CellularStateMachine::set_credentials(const char *apn, const char *uname, const char *pwd)
+{
+    _apn = apn;
+    _uname = uname;
+    _pwd = pwd;
 }
 
 void CellularStateMachine::stop()

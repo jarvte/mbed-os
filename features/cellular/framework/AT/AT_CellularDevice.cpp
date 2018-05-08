@@ -30,11 +30,7 @@ AT_CellularDevice::AT_CellularDevice(EventQueue &queue) : CellularDevice(&queue)
 
 AT_CellularDevice::~AT_CellularDevice()
 {
-    close_network();
-    close_sms();
-    close_power();
-    close_sim();
-    close_information();
+    close_all_interfaces();
 
     ATHandler *atHandler = _atHandlers;
     while (atHandler) {
@@ -210,6 +206,15 @@ void AT_CellularDevice::close_information()
         delete _information;
         _information = NULL;
     }
+}
+
+void AT_CellularDevice::close_all_interfaces()
+{
+    close_network();
+    close_sms();
+    close_power();
+    close_sim();
+    close_information();
 }
 
 void AT_CellularDevice::set_timeout(int timeout)
