@@ -45,15 +45,23 @@ namespace mbed
 class CellularDevice : public CellularBase
 {
 public:
+    /** Constructor
+     *
+     *  @param at_queue queue used in ATHandler classes.
+     */
     CellularDevice(events::EventQueue *at_queue);
+
     /** virtual Destructor
      */
     virtual ~CellularDevice();
 
 public:
-    /** Initializes CellularDevice by creating CellularPower and CelluarStateMachine.
+    /** Initializes CellularDevice by creating CellularPower and CellularStateMachine.
+     *  Not mandatory to call. If this is not called then connect creates filehandle and queue.
      *
-     * return zero on success
+     *  @param fh       file handle used when creating CellularPower to communicate with modem
+     *  @param queue    queue used in state machine
+     *  @return         zero on success
      */
     nsapi_error_t init(FileHandle *fh, events::EventQueue *queue);
 
@@ -136,7 +144,8 @@ public:
      *  @param plmn operator in numeric format. See more from 3GPP TS 27.007 chapter 7.3.
      */
     void set_plmn(const char* plmn);
-public:
+
+public: // from CellularBase
     /** Set the Cellular network credentials
      *
      *  Please check documentation of connect() for default behaviour of APN settings.
@@ -145,8 +154,7 @@ public:
      *  @param uname    optionally, Username
      *  @param pwd      optionally, password
      */
-    virtual void set_credentials(const char *apn, const char *uname = 0,
-                                 const char *pwd = 0);
+    virtual void set_credentials(const char *apn, const char *uname = 0, const char *pwd = 0);
 
     /** Set the pin code for SIM card
      *
@@ -222,7 +230,12 @@ public:
      */
     virtual void attach(mbed::Callback<void(nsapi_event_t, intptr_t)> status_cb);
 
-//protected:// from NetworkInterface
+    /** If one needs to enter SIM pin/puk code it's queried with this callback.
+     *  There is a default implementation in this class already.
+     */
+    void set_sim_callback(Callback<const char*(CellularSIM::SimState)> sim_pin_cb);
+
+public: // from NetworkInterface
 
     /** Set blocking status of connect() which by default should be blocking
      *
@@ -236,17 +249,18 @@ public:
      *  @return The underlying NetworkStack object
      */
     virtual NetworkStack *get_stack();
-protected:
-    const char* get_sim_pin() const;
+
 private:
 
     void network_callback(nsapi_event_t ev, intptr_t ptr);
     bool state_machine_callback(int state, int next_state, int error);
-    char* sim_pin_callback(CellularSIM::SimState state);
+    const char* sim_pin_callback(CellularSIM::SimState state);
+    nsapi_error_t create_and_init();
 
     CellularStateMachine* _state_machine;
     bool _is_connected;
     Callback<void(nsapi_event_t, intptr_t)> _nw_status_cb;
+    Callback<const char*(CellularSIM::SimState)> _sim_pin_cb;
 
     FileHandle *_fh;
     events::EventQueue *_queue;
@@ -258,6 +272,11 @@ private:
 
     // until we have to support CellularBase we need to store pin, apn, uname and pwd temporarily here
     char _sim_pin[MAX_PIN_SIZE+1];
+    bool _self_created;
+
+    const char *_apn;
+    const char *_uname;
+    const char *_pwd;
 
 
 };

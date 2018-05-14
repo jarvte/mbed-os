@@ -59,7 +59,7 @@ nsapi_error_t AT_CellularNetwork::init()
 
     for (int type = 0; type < CellularNetwork::C_MAX; type++) {
         if (has_registration((RegistrationType)type)) {
-            tr_info("setting urc handler for prefix: %s", at_reg[type].urc_prefix);
+            tr_info("Settings URC handler for type: %d and prefix: %s", type, at_reg[type].urc_prefix);
             if (_at.set_urc_handler(at_reg[type].urc_prefix, _urc_funcs[type]) != NSAPI_ERROR_OK) {
                 return NSAPI_ERROR_NO_MEMORY;
             }
@@ -617,12 +617,14 @@ nsapi_error_t AT_CellularNetwork::set_registration_urc(RegistrationType type, bo
     int index = (int)type;
     MBED_ASSERT(index >= 0 && index < C_MAX);
 
+    tr_info("set_registration_urc: %d and urc_on: %d", type, urc_on);
+
     if (!has_registration(type)) {
         return NSAPI_ERROR_UNSUPPORTED;
     } else {
         _at.lock();
         if (urc_on) {
-            tr_info("Settings URC for type: %d and command %s", type, at_reg[index].cmd);
+            tr_info("set_registration_urc: %s", at_reg[index].cmd);
             _at.cmd_start(at_reg[index].cmd);
             _at.write_string("=2", false);
             _at.cmd_stop();
@@ -721,7 +723,6 @@ nsapi_error_t AT_CellularNetwork::get_registration_status(RegistrationType type,
     }
 
     _at.lock();
-
     const char *rsp[] = { "+CEREG:", "+CGREG:", "+CREG:"};
     _at.cmd_start(at_reg[i].cmd);
     _at.write_string("?", false);

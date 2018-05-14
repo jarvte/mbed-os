@@ -40,9 +40,7 @@ bool QUECTEL_BG96_CellularNetwork::get_modem_stack_type(nsapi_ip_stack_t request
 
 NetworkStack *QUECTEL_BG96_CellularNetwork::get_stack()
 {
-    tr_info("QUECTEL_BG96_CellularNetwork::get_stack()");
     if (!_stack) {
-        tr_info("QUECTEL_BG96_CellularNetwork::get_stack(), creating new stack");
         _stack = new QUECTEL_BG96_CellularStack(_at, _cid, _ip_stack_type);
     }
     return _stack;

@@ -20,15 +20,13 @@
 #include "UARTSerial.h"
 #include "nsapi_ppp.h"
 
-#ifndef MBED_CONF_APP_SIM_PIN_CODE
-# define MBED_CONF_APP_SIM_PIN_CODE    "1234"
-#endif
-
 namespace mbed
 {
 
-CellularDevice::CellularDevice(events::EventQueue *at_queue) : _state_machine(0), _is_connected(false), _nw_status_cb(0), _fh(0), _queue(0),
-        _blocking(true), _target_state(CellularStateMachine::STATE_POWER_ON), _cellularSemaphore(0), _at_queue(at_queue)
+CellularDevice::CellularDevice(events::EventQueue *at_queue) : _state_machine(0), _is_connected(false),
+        _nw_status_cb(0), _sim_pin_cb(0), _fh(0), _queue(0), _blocking(true),
+        _target_state(CellularStateMachine::STATE_POWER_ON),_cellularSemaphore(0), _at_queue(at_queue),
+        _self_created(false), _apn(0), _uname(0), _pwd(0)
 {
     memset(_sim_pin, 0, sizeof(_sim_pin));
 }
@@ -36,6 +34,10 @@ CellularDevice::CellularDevice(events::EventQueue *at_queue) : _state_machine(0)
 CellularDevice::~CellularDevice()
 {
     delete _state_machine;
+    if (_self_created) {
+        delete _fh;
+        delete _queue;
+    }
 }
 
 nsapi_error_t CellularDevice::init(FileHandle *fh, events::EventQueue *queue)
@@ -73,7 +75,9 @@ CellularStateMachine* CellularDevice::get_state_machine()
 void CellularDevice::set_credentials(const char *apn, const char *uname,
                                  const char *pwd)
 {
-    _state_machine->set_credentials(apn, uname, pwd);
+    _apn = apn;
+    _uname = uname;
+    _pwd = pwd;
 }
 
 void CellularDevice::set_sim_pin(const char *sim_pin)
@@ -95,30 +99,46 @@ nsapi_error_t CellularDevice::connect(const char *sim_pin, const char *apn,
     return connect();
 }
 
+nsapi_error_t CellularDevice::create_and_init()
+{
+    // If application haven't call init, then we configure uart and queue by ourselves
+    nsapi_error_t err = NSAPI_ERROR_OK;
+    UARTSerial* serial = new UARTSerial(MDMTXD, MDMRXD, MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE);
+    if (!serial) {
+        return NSAPI_ERROR_NO_MEMORY;
+    }
+    events::EventQueue* queue = new events::EventQueue(8 * EVENTS_EVENT_SIZE);
+    if (!queue) {
+        delete serial;
+        return NSAPI_ERROR_NO_MEMORY;
+    }
+    err = init(serial, queue);
+    if (err) {
+        delete serial;
+        delete queue;
+        delete _state_machine;
+        _queue = NULL;
+        _fh = NULL;
+        _state_machine = NULL;
+        close_power();
+    } else {
+        _state_machine->start_dispatch();
+        _self_created = true; // mark that we created fh and queue so that we also delete them
+    }
+
+    return err;
+}
+
 nsapi_error_t CellularDevice::connect()
 {
     nsapi_error_t err = NSAPI_ERROR_OK;
 
     if (_state_machine == NULL) {
-        // If application haven't call init, then we configure it by ourselves
-        UARTSerial* serial = new UARTSerial(MDMTXD, MDMRXD, MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE);
-        if (!serial) {
-            return NSAPI_ERROR_NO_MEMORY;
-        }
-        events::EventQueue* queue = new events::EventQueue();
-        if (!queue) {
-            delete serial;
-            return NSAPI_ERROR_NO_MEMORY;
-        }
-        err = init(serial, queue);
-        if (err) {
-            delete serial;
-            delete queue;
-        } else {
-            _state_machine->start_dispatch();
+        err = create_and_init();
+        if (err != NSAPI_ERROR_OK) {
+            return err;
         }
     }
-
 
     _target_state = CellularStateMachine::STATE_CONNECTED;
     err = _state_machine->start();
@@ -181,6 +201,7 @@ nsapi_error_t CellularDevice::set_blocking(bool blocking)
 
 NetworkStack *CellularDevice::get_stack()
 {
+    // we don't yet have reference counting or mux so we can get network by opening it
     return open_network(_fh)->get_stack();
 }
 
@@ -189,9 +210,20 @@ void CellularDevice::attach(Callback<void(nsapi_event_t, intptr_t)> status_cb)
     _nw_status_cb = status_cb;
 }
 
-char* CellularDevice::sim_pin_callback(CellularSIM::SimState state)
+void CellularDevice::set_sim_callback(Callback<const char*(CellularSIM::SimState)> sim_pin_cb)
 {
+    _sim_pin_cb = sim_pin_cb;
+}
+
+const char* CellularDevice::sim_pin_callback(CellularSIM::SimState state)
+{
+    // use applications cb as default if there is one
+    if (_sim_pin_cb) {
+        return _sim_pin_cb(state);
+    }
+
     if (state == CellularSIM::SimStatePinNeeded) {
+        // if we get rid of CellularBase and it's set_sim_pin we could just call applications cb.
         if (strlen(_sim_pin)) {
             return _sim_pin;
         } else {
@@ -222,15 +254,21 @@ void CellularDevice::network_callback(nsapi_event_t ev, intptr_t ptr)
 
 bool CellularDevice::state_machine_callback(int state, int next_state, int error)
 {
-    tr_info("state_machine_callback: %s ==> %s", _state_machine->get_state_string((CellularStateMachine::CellularState)state),
-            _state_machine->get_state_string((CellularStateMachine::CellularState)next_state));
+    tr_info("state_machine_callback: %s ==> %s. error: %d", _state_machine->get_state_string((CellularStateMachine::CellularState)state),
+            _state_machine->get_state_string((CellularStateMachine::CellularState)next_state), error);
 
-    if (state == CellularStateMachine::STATE_MUX) {
-        // If mux is in use we should create mux and it channels here. Then create power, sim and network with filehandles
+    if (next_state == CellularStateMachine::STATE_SIM_PIN) {
+        // If mux is in use we should create mux and it channels here (with state MUX). Then create power, sim and network with filehandles
         // got from mux. Now that we don't have mux we just create sim and power.
         CellularSIM* sim = open_sim(_fh);
         CellularNetwork* nw = open_network(_fh);
         nsapi_error_t err = nw->init();
+        if (err) {
+            close_sim();
+            close_network();
+            return false;
+        }
+        nw->set_credentials(_apn, _uname, _pwd);
         _state_machine->set_sim(sim);
         _state_machine->set_network(nw);
         return true;

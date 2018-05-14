@@ -35,7 +35,7 @@ namespace mbed {
 
 class CellularDevice;
 
-const int MAX_RETRY_ARRAY_SIZE2 = 10;
+const int RETRY_ARRAY_SIZE = 10;
 
 /** CellularStateMachine class
  *
@@ -44,8 +44,11 @@ const int MAX_RETRY_ARRAY_SIZE2 = 10;
 class CellularStateMachine
 {
 public:
-    /** Power needed blaa blaa
+    /** Constructor.
      *
+     *  @param power    Power interface needed to get device up and running. Not owned by this class.
+     *  @param queue    Queue needed for state machine event transfers
+     *  @param device   CellularDevice interface needed for changing timeout for ATHandler
      */
     CellularStateMachine(CellularPower *power, events::EventQueue &queue, CellularDevice *device);
     virtual ~CellularStateMachine();
@@ -57,7 +60,6 @@ public:
         STATE_INIT = 0,
         STATE_POWER_ON,
         STATE_DEVICE_READY,
-        STATE_MUX,
         STATE_SIM_PIN,
         STATE_REGISTERING_NETWORK,
         STATE_MANUAL_REGISTERING_NETWORK,
@@ -68,11 +70,23 @@ public:
     };
 public:
 
+    /** Set the SIM interface, not owned by this class.
+     *
+     *  @param sim  SIM interface
+     */
     void set_sim(CellularSIM* sim);
-    void set_network(CellularNetwork* nw);
-    void set_power(CellularPower* pwr);
 
-    void set_credentials(const char *apn, const char *uname, const char *pwd);
+    /** Set the Network interface, not owned by this class.
+     *
+     *  @param nw  Network interface
+     */
+    void set_network(CellularNetwork* nw);
+
+    /** Set the Power interface, not owned by this class.
+     *
+     *  @param pwr  Power interface
+     */
+    void set_power(CellularPower* pwr);
 
     /** Set callback for state machine state updates
      *  @param status_callback function to call on state changes
@@ -81,7 +95,7 @@ public:
 
     /** If one needs to enter SIM pin/puk code it's queried with this callback
      */
-    void set_sim_callback(Callback<char*(CellularSIM::SimState)> sim_pin_cb);
+    void set_sim_callback(Callback<const char*(CellularSIM::SimState)> sim_pin_cb);
 
     /** Register callback for status reporting
      *
@@ -103,19 +117,15 @@ public:
      */
     nsapi_error_t start_dispatch();
 
-    /** Stop event queue dispatching and close cellular interfaces
+    /** Stop event queue dispatching, free all resources.
      */
     void stop();
 
-    /** Change cellular connection to the target state
+    /** Starts the state machine which will stop when connected if successful.
      *
      *  @return see nsapi_error_t, 0 on success
      */
     nsapi_error_t start();
-
-
-    nsapi_error_t continue_from_state(CellularState state);
-
 
     /** Sets the timeout array for network rejects. After reject next item is tried and after all items are waited and
      *  still fails then current network event will fail.
@@ -132,6 +142,11 @@ public:
      */
     void set_plmn(const char* plmn);
 
+     /** returns readable format of the given state. Used for printing states while debugging.
+     *
+     *  @param state state which is returned in string format
+     *  @return      string format of the given state
+     */
     const char* get_state_string(CellularState state);
 private:
     bool power_on();
@@ -142,13 +157,12 @@ private:
     bool set_attach_network();
     bool is_registered();
     bool device_ready();
-    nsapi_error_t is_automatic_registering(bool& auto_reg);
+    bool is_automatic_registering(bool& auto_reg);
 
     // state functions to keep state machine simple
     void state_init();
     void state_power_on();
     void state_device_ready();
-    void state_mux();
     void state_sim_pin();
     void state_registering();
     void state_manual_registering_network();
@@ -158,11 +172,11 @@ private:
     void state_connected();
     void enter_to_state(CellularState state);
     void retry_state_or_fail();
+
     void network_callback(nsapi_event_t ev, intptr_t ptr);
     bool is_registered_to_plmn();
-
-private:
-    void registering_urcs();
+    nsapi_error_t continue_from_state(CellularState state);
+    bool registering_urcs();
     void report_failure(const char* msg, nsapi_error_t error);
     void event();
     void ready_urc_cb();
@@ -172,7 +186,7 @@ private:
 
     Callback<bool(int, int, int)> _status_callback;
     Callback<void(nsapi_event_t, intptr_t)> _event_status_cb;
-    Callback<char*(CellularSIM::SimState)> _sim_pin_cb;
+    Callback<const char*(CellularSIM::SimState)> _sim_pin_cb;
 
     CellularDevice* _cellularDevice;
     CellularNetwork *_network;
@@ -185,17 +199,13 @@ private:
     int _start_time;
     int _event_timeout;
 
-    uint16_t _retry_timeout_array[MAX_RETRY_ARRAY_SIZE2];
+    uint16_t _retry_timeout_array[RETRY_ARRAY_SIZE];
     int _retry_array_length;
     int _event_id;
     bool _urcs_set;
     bool _command_success;
     const char* _plmn;
     bool _plmn_network_found;
-
-    const char *_apn;
-    const char *_uname;
-    const char *_pwd;
 };
 
 } // namespace

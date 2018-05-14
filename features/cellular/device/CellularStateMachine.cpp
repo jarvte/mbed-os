@@ -25,6 +25,7 @@
 #include "CellularLog.h"
 #include "CellularCommon.h"
 #include "CellularDevice.h"
+#include "Thread.h"
 
 // timeout to wait for AT responses
 #define TIMEOUT_POWER_ON     (1*1000)
@@ -46,7 +47,7 @@ CellularStateMachine::CellularStateMachine(CellularPower *power, events::EventQu
          _cellularDevice(device), _network(0),
         _power(power), _sim(0), _queue(queue), _queue_thread(0), _retry_count(0),
         _event_timeout(-1), _event_id(0), _urcs_set(false), _command_success(false),
-        _plmn(0), _plmn_network_found(false), _apn(0), _uname(0), _pwd(0)
+        _plmn(0), _plmn_network_found(false)
 {
 #if MBED_CONF_CELLULAR_RANDOM_MAX_START_DELAY == 0
     _start_time = 0;
@@ -66,7 +67,7 @@ CellularStateMachine::CellularStateMachine(CellularPower *power, events::EventQu
     _retry_timeout_array[7] = 128; // if around two minutes was not enough then let's wait much longer
     _retry_timeout_array[8] = 600;
     _retry_timeout_array[9] = TIMEOUT_NETWORK_MAX;
-    _retry_array_length = MAX_RETRY_ARRAY_SIZE2;
+    _retry_array_length = RETRY_ARRAY_SIZE;
 }
 
 CellularStateMachine::~CellularStateMachine()
@@ -83,19 +84,11 @@ void CellularStateMachine::set_network(CellularNetwork* nw)
 {
     _network = nw;
     _network->attach(callback(this, &CellularStateMachine::network_callback));
-    _network->set_credentials(_apn, _uname, _pwd);
 }
 
 void CellularStateMachine::set_power(CellularPower* pwr)
 {
     _power = pwr;
-}
-
-void CellularStateMachine::set_credentials(const char *apn, const char *uname, const char *pwd)
-{
-    _apn = apn;
-    _uname = uname;
-    _pwd = pwd;
 }
 
 void CellularStateMachine::stop()
@@ -145,26 +138,24 @@ bool CellularStateMachine::open_sim()
 
     switch (state) {
         case CellularSIM::SimStateReady:
-            tr_info("SIM Ready");
             break;
+        case CellularSIM::SimStatePukNeeded:
         case CellularSIM::SimStatePinNeeded: {
-            tr_info("SIM pin code needed....");
             // query sim from the CellularDevice/application
             if (_sim_pin_cb) {
-                char* pin = _sim_pin_cb(state);
-                tr_info("SIM pin required, entering pin: %s", pin);
+                const char* pin = _sim_pin_cb(state);
+                tr_info("SIM pin/puk required, entering pin/puk: %s", pin);
                 nsapi_error_t err = _sim->set_pin(pin);
                 if (err) {
-                    tr_error("SIM pin set failed with: %d, bailing out...", err);
+                    tr_error("SIM pin/puk set failed with: %d", err);
+                } else {
+                    rtos::Thread::wait(100);
+                    _sim->get_sim_state(state);
                 }
             } else {
                 tr_warn("PIN required but No SIM pin provided.");
             }
         }
-            break;
-        case CellularSIM::SimStatePukNeeded:
-            // TODO: we can use same logic as in pin needed
-            tr_info("SIM PUK code needed...");
             break;
         case CellularSIM::SimStateUnknown:
             tr_info("SIM, unknown state...");
@@ -286,14 +277,14 @@ void CellularStateMachine::report_failure(const char* msg, nsapi_error_t error)
 const char* CellularStateMachine::get_state_string(CellularState state)
 {
 #if MBED_CONF_MBED_TRACE_ENABLE
-    static const char *strings[] = { "Init", "Power", "Device ready", "Mux", "SIM pin", "Registering network", "Manual registering", "Attaching network", "Activating PDP Context", "Connecting network", "Connected"};
+    static const char *strings[] = { "Init", "Power", "Device ready", "SIM pin", "Registering network", "Manual registering", "Attaching network", "Activating PDP Context", "Connecting network", "Connected"};
     return strings[state];
 #else
-    return "";
+    return NULL;
 #endif // #if MBED_CONF_MBED_TRACE_ENABLE
 }
 
-nsapi_error_t CellularStateMachine::is_automatic_registering(bool& auto_reg)
+bool CellularStateMachine::is_automatic_registering(bool& auto_reg)
 {
     CellularNetwork::NWRegisteringMode mode;
     nsapi_error_t err = _network->get_network_registering_mode(mode);
@@ -301,7 +292,7 @@ nsapi_error_t CellularStateMachine::is_automatic_registering(bool& auto_reg)
         tr_debug("automatic registering mode: %d", mode);
         auto_reg = (mode == CellularNetwork::NWModeAutomatic);
     }
-    return err;
+    return (err == NSAPI_ERROR_OK);
 }
 
 bool CellularStateMachine::is_registered_to_plmn()
@@ -388,8 +379,8 @@ void CellularStateMachine::enter_to_state(CellularState state)
 
 void CellularStateMachine::retry_state_or_fail()
 {
-    if (++_retry_count < MAX_RETRY_ARRAY_SIZE2) {
-        tr_debug("Retry State %s, retry %d/%d", get_state_string(_state), _retry_count, MAX_RETRY_ARRAY_SIZE2);
+    if (++_retry_count < _retry_array_length) {
+        tr_debug("Retry State %s, retry %d/%d", get_state_string(_state), _retry_count, _retry_array_length);
         _event_timeout = _retry_timeout_array[_retry_count];
     } else {
         report_failure(get_state_string(_state), NSAPI_ERROR_NO_CONNECTION);
@@ -435,7 +426,7 @@ void CellularStateMachine::state_device_ready()
     if (_power->set_at_mode() == NSAPI_ERROR_OK) {
         tr_info("state_device_ready, set_at_mode success");
         if (device_ready()) {
-            enter_to_state(STATE_MUX);
+            enter_to_state(STATE_SIM_PIN);
         }
     } else {
         tr_info("state_device_ready, set_at_mode failed...");
@@ -444,11 +435,6 @@ void CellularStateMachine::state_device_ready()
         }
         retry_state_or_fail();
     }
-}
-
-void CellularStateMachine::state_mux()
-{
-    _next_state = STATE_SIM_PIN;
 }
 
 void CellularStateMachine::state_sim_pin()
@@ -466,10 +452,10 @@ void CellularStateMachine::state_sim_pin()
     }
 }
 
-void CellularStateMachine::registering_urcs()
+bool CellularStateMachine::registering_urcs()
 {
     if (_urcs_set) {
-        return;
+        return true;
     } else {
         bool success = false;
         for (int type = 0; type < CellularNetwork::C_MAX; type++) {
@@ -479,31 +465,35 @@ void CellularStateMachine::registering_urcs()
         }
         if (!success) {
             tr_error("Failed to set any URC's for registration");
-            retry_state_or_fail();
-            return;
+            return false;
         }
         _urcs_set = true;
-        tr_info("registering urc's done");
+        tr_info("registered reg urc's successfully");
     }
+    return true;
 }
 
 void CellularStateMachine::state_registering()
 {
     _cellularDevice->set_timeout(TIMEOUT_NETWORK);
     tr_info("state_registering");
-    registering_urcs();
-
-    if (is_registered()) {
-        // we are already registered, go to attach
-        enter_to_state(STATE_ATTACHING_NETWORK);
-    } else {
-        bool auto_reg = false;
-        nsapi_error_t err = is_automatic_registering(auto_reg);
-        if (err == NSAPI_ERROR_OK && !auto_reg) { // when we support plmn add this :  || plmn
-            // automatic registering is not on, set registration and retry
-            _cellularDevice->set_timeout(TIMEOUT_REGISTRATION);
-            set_network_registration();
+    if (registering_urcs()) {
+        if (is_registered()) {
+            // we are already registered, go to attach
+            enter_to_state(STATE_ATTACHING_NETWORK);
+        } else {
+            if (!_command_success) {
+            bool auto_reg = false;
+                _command_success = is_automatic_registering(auto_reg);
+                if (_command_success && !auto_reg) {
+                    // automatic registering is not on, set registration and retry
+                    _cellularDevice->set_timeout(TIMEOUT_REGISTRATION);
+                    _command_success = set_network_registration();
+                }
+            }
+            retry_state_or_fail();
         }
+    } else {
         retry_state_or_fail();
     }
 }
@@ -592,9 +582,6 @@ void CellularStateMachine::event()
         case STATE_DEVICE_READY:
             state_device_ready();
             break;
-        case STATE_MUX:
-            state_mux();
-            break;
         case STATE_SIM_PIN:
             state_sim_pin();
             break;
@@ -662,7 +649,7 @@ nsapi_error_t CellularStateMachine::start_dispatch()
     return NSAPI_ERROR_OK;
 }
 
-void CellularStateMachine::set_sim_callback(Callback<char*(CellularSIM::SimState)> sim_pin_cb)
+void CellularStateMachine::set_sim_callback(Callback<const char*(CellularSIM::SimState)> sim_pin_cb)
 {
     _sim_pin_cb = sim_pin_cb;
 }
@@ -723,7 +710,7 @@ events::EventQueue *CellularStateMachine::get_queue()
 
 void CellularStateMachine::set_retry_timeout_array(uint16_t timeout[], int array_len)
 {
-    _retry_array_length = array_len > MAX_RETRY_ARRAY_SIZE2 ? MAX_RETRY_ARRAY_SIZE2 : array_len;
+    _retry_array_length = array_len > RETRY_ARRAY_SIZE ? RETRY_ARRAY_SIZE : array_len;
 
     for (int i = 0; i < _retry_array_length; i++) {
         _retry_timeout_array[i] = timeout[i];

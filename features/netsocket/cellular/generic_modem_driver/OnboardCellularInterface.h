@@ -21,11 +21,11 @@
 #ifdef CELLULAR_DEVICE
 #include CELLULAR_STRINGIFY(CELLULAR_DEVICE.h)
 // temporary wrapper before we get NetworkInterface::get_default_instance()
-static events::EventQueue queue;
+static events::EventQueue at_queue(8 * EVENTS_EVENT_SIZE);
 using namespace mbed;
 class CellularWrapper : public CELLULAR_DEVICE {
 public:
-    CellularWrapper() : CELLULAR_DEVICE(queue) {};
+    CellularWrapper() : CELLULAR_DEVICE(at_queue) {};
 };
 typedef CellularWrapper OnboardCellularInterface;
 #elif MODEM_ON_BOARD && MODEM_ON_BOARD_UART && NSAPI_PPP_AVAILABLE
