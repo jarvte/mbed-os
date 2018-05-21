@@ -172,16 +172,6 @@ bool CellularStateMachine::open_sim()
     return state == CellularSIM::SimStateReady;
 }
 
-bool CellularStateMachine::set_network_registration(char *plmn)
-{
-    nsapi_error_t err = _network->set_registration(plmn);
-    if (err != NSAPI_ERROR_OK) {
-        tr_error("Failed to set network registration with: %d", err);
-        return false;
-    }
-    return true;
-}
-
 bool CellularStateMachine::is_registered()
 {
     CellularNetwork::RegistrationStatus status;
@@ -248,24 +238,6 @@ bool CellularStateMachine::get_network_registration(CellularNetwork::Registratio
     return true;
 }
 
-bool CellularStateMachine::get_attach_network(CellularNetwork::AttachStatus &status)
-{
-    nsapi_error_t err = _network->get_attach(status);
-    if (err != NSAPI_ERROR_OK) {
-        return false;
-    }
-    return true;
-}
-
-bool CellularStateMachine::set_attach_network()
-{
-    nsapi_error_t attach_err = _network->set_attach();
-    if (attach_err != NSAPI_ERROR_OK) {
-        return false;
-    }
-    return true;
-}
-
 void CellularStateMachine::report_failure(const char* msg, nsapi_error_t error)
 {
     tr_error("Cellular network failed: %s with error: %d", msg, error);
@@ -282,17 +254,6 @@ const char* CellularStateMachine::get_state_string(CellularState state)
 #else
     return NULL;
 #endif // #if MBED_CONF_MBED_TRACE_ENABLE
-}
-
-bool CellularStateMachine::is_automatic_registering(bool& auto_reg)
-{
-    CellularNetwork::NWRegisteringMode mode;
-    nsapi_error_t err = _network->get_network_registering_mode(mode);
-    if (err == NSAPI_ERROR_OK) {
-        tr_debug("automatic registering mode: %d", mode);
-        auto_reg = (mode == CellularNetwork::NWModeAutomatic);
-    }
-    return (err == NSAPI_ERROR_OK);
 }
 
 bool CellularStateMachine::is_registered_to_plmn()
@@ -407,7 +368,7 @@ void CellularStateMachine::state_power_on()
     }
 }
 
-bool CellularStateMachine::device_ready()
+void CellularStateMachine::device_ready()
 {
     tr_info("Cellular device ready");
     if (_event_status_cb) {
@@ -415,8 +376,6 @@ bool CellularStateMachine::device_ready()
     }
 
     _power->remove_device_ready_urc_cb(mbed::callback(this, &CellularStateMachine::ready_urc_cb));
-
-    return true;
 }
 
 void CellularStateMachine::state_device_ready()
@@ -425,9 +384,8 @@ void CellularStateMachine::state_device_ready()
     tr_info("state_device_ready");
     if (_power->set_at_mode() == NSAPI_ERROR_OK) {
         tr_info("state_device_ready, set_at_mode success");
-        if (device_ready()) {
-            enter_to_state(STATE_SIM_PIN);
-        }
+        device_ready();
+        enter_to_state(STATE_SIM_PIN);
     } else {
         tr_info("state_device_ready, set_at_mode failed...");
         if (_retry_count == 0) {
@@ -482,16 +440,11 @@ void CellularStateMachine::state_registering()
             // we are already registered, go to attach
             enter_to_state(STATE_ATTACHING_NETWORK);
         } else {
-            if (!_command_success) {
-            bool auto_reg = false;
-                _command_success = is_automatic_registering(auto_reg);
-                if (_command_success && !auto_reg) {
-                    // automatic registering is not on, set registration and retry
-                    _cellularDevice->set_timeout(TIMEOUT_REGISTRATION);
-                    _command_success = set_network_registration();
-                }
-            }
-            retry_state_or_fail();
+             _cellularDevice->set_timeout(TIMEOUT_REGISTRATION);
+             if (!_command_success) {
+                 _command_success = (_network->set_registration() == NSAPI_ERROR_OK);
+             }
+             retry_state_or_fail();
         }
     } else {
         retry_state_or_fail();
@@ -509,7 +462,7 @@ void CellularStateMachine::state_manual_registering_network()
             enter_to_state(STATE_ATTACHING_NETWORK);
         } else {
             if (!_command_success) {
-                _command_success = set_network_registration();
+                _command_success = (_network->set_registration(_plmn) == NSAPI_ERROR_OK);
             }
             retry_state_or_fail();
         }
@@ -519,19 +472,12 @@ void CellularStateMachine::state_manual_registering_network()
 void CellularStateMachine::state_attaching()
 {
     _cellularDevice->set_timeout(TIMEOUT_CONNECT);
-    CellularNetwork::AttachStatus attach_status;
-    if (get_attach_network(attach_status)) {
-        if (attach_status == CellularNetwork::Attached) {
-            enter_to_state(STATE_ACTIVATING_PDP_CONTEXT);
-        } else {
-            if (!_command_success) {
-                _command_success = set_attach_network();
-            }
-            retry_state_or_fail();
-        }
-    } else {
-        retry_state_or_fail();
-    }
+
+     if (_network->set_attach() == NSAPI_ERROR_OK) {
+         enter_to_state(STATE_ACTIVATING_PDP_CONTEXT);
+     } else {
+         retry_state_or_fail();
+     }
 }
 
 void CellularStateMachine::state_activating_pdp_context()
@@ -697,9 +643,8 @@ void CellularStateMachine::ready_urc_cb()
     if (_state == STATE_DEVICE_READY && _power->set_at_mode() == NSAPI_ERROR_OK) {
         tr_debug("State was STATE_DEVICE_READY and at mode ready, cancel state and move to next");
         _queue.cancel(_event_id);
-        if (device_ready()) {
-            continue_from_state(STATE_SIM_PIN);
-        }
+        device_ready();
+        continue_from_state(STATE_SIM_PIN);
     }
 }
 

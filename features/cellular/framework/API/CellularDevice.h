@@ -278,7 +278,6 @@ private:
     const char *_uname;
     const char *_pwd;
 
-
 };
 
 } // namespace mbed
