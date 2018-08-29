@@ -40,7 +40,6 @@ public:
     AT_CellularDevice(events::EventQueue &queue);
     virtual ~AT_CellularDevice();
 
-protected:
     ATHandler *_atHandlers;
 
     ATHandler *get_at_handler(FileHandle *fh);
