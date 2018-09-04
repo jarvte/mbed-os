@@ -76,7 +76,7 @@ public: // CellularDevice
 
     virtual void set_timeout(int timeout);
 
-    virtual uint16_t get_send_delay();
+    virtual uint16_t get_send_delay() const;
 
     virtual void modem_debug_on(bool on);
 
@@ -127,7 +127,7 @@ protected:
     AT_CellularInformation *_information;
 
 protected:
-    events::EventQueue &_queue;
+    events::EventQueue &_at_queue;
     int _default_timeout;
     bool _modem_debug_on;
 };
