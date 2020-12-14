@@ -105,6 +105,8 @@ extern int8_t eventOS_event_timer_request(uint8_t event_id, uint8_t event_type, 
  */
 extern arm_event_storage_t *eventOS_event_timer_request_at(const struct arm_event_s *event, uint32_t at);
 
+extern int get_timer_event_count(void);
+
 /**
  * Send an event in a specified time
  *

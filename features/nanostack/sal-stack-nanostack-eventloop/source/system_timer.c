@@ -133,6 +133,7 @@ static sys_timer_struct_s *timer_struct_get(void)
 {
     sys_timer_struct_s *timer;
     platform_enter_critical();
+
     timer = ns_list_get_first(&system_timer_free);
     if (timer) {
         ns_list_remove(&system_timer_free, timer);
@@ -140,7 +141,16 @@ static sys_timer_struct_s *timer_struct_get(void)
         timer = sys_timer_dynamically_allocate();
     }
     platform_exit_critical();
+
     return timer;
+}
+
+
+int get_timer_event_count(void)
+{
+    int count = ns_list_count(&system_timer_free);
+    printf("\n\n timer_struct_get list count: %lu \n\n", count);
+    return count;
 }
 
 void timer_sys_event_free(arm_event_storage_t *event)
