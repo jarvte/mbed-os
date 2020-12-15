@@ -23,7 +23,7 @@
 #include "ns_timer.h"
 #include "event.h"
 #include "platform/arm_hal_interrupt.h"
-
+#include "platform/mbed_assert.h"
 
 typedef struct arm_core_tasklet {
     int8_t id; /**< Event handler Tasklet ID */
@@ -175,6 +175,8 @@ arm_event_storage_t *event_core_get(void)
         event->data.priority = ARM_LIB_LOW_PRIORITY_EVENT;
     }
     platform_exit_critical();
+
+    MBED_ASSERT(event);
     return event;
 }
 

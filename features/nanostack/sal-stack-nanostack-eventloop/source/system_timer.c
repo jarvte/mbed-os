@@ -18,13 +18,19 @@
 #include "timer_sys.h"
 #include "platform/arm_hal_interrupt.h"
 #include "platform/arm_hal_timer.h"
+#include "platform/mbed_assert.h"
 #include "nsdynmemLIB.h"
 #include "eventOS_event.h"
 #include "eventOS_event_timer.h"
 #include "event.h"
 #include "eventOS_callback_timer.h"
+#include "mbed_trace.h"
+
+#define TRACE_GROUP "syst"
 
 #include "ns_timer.h"
+
+#include <stdio.h>
 
 #ifndef ST_MAX
 #define ST_MAX 6
@@ -142,15 +148,19 @@ static sys_timer_struct_s *timer_struct_get(void)
     }
     platform_exit_critical();
 
+    MBED_ASSERT(timer);
     return timer;
 }
 
 
-int get_timer_event_count(void)
+void get_timer_event_count(void)
 {
-    int count = ns_list_count(&system_timer_free);
-    printf("\n\n timer_struct_get list count: %lu \n\n", count);
-    return count;
+    int count_free, count_list = 0;
+    platform_enter_critical();
+    count_free = ns_list_count(&system_timer_free);
+    count_list = ns_list_count(&system_timer_list);
+    platform_exit_critical();
+    tr_info("timer_struct_get list count_free: %d, count_list: %d", count_free, count_list);
 }
 
 void timer_sys_event_free(arm_event_storage_t *event)

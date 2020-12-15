@@ -18,6 +18,7 @@
 #include "ns_types.h"
 #include <stdlib.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "eventOS_scheduler.h"
 #include "ns_event_loop.h"
@@ -28,6 +29,7 @@
 #include "arm_hal_interrupt_private.h"
 #include "ns_hal_init.h"
 
+#define TRACE_GROUP "hali"
 void ns_hal_init(void *heap, size_t h_size, void (*passed_fptr)(heap_fail_t), mem_stat_t *info_ptr)
 {
     static bool initted;
@@ -41,6 +43,8 @@ void ns_hal_init(void *heap, size_t h_size, void (*passed_fptr)(heap_fail_t), me
             return;
         }
     }
+
+    tr_info("ns_hal_init, h_size: %zu", h_size);
     platform_critical_init();
     ns_dyn_mem_init(heap, h_size, passed_fptr, info_ptr);
 #ifndef NS_EXCLUDE_HIGHRES_TIMER
