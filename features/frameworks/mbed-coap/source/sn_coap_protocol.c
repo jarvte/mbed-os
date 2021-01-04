@@ -901,6 +901,7 @@ rescan:
                 sn_coap_protocol_release_allocated_send_msg_mem(handle, stored_msg_ptr);
             } else {
                 /* Send message  */
+                tr_info("sn_coap_protocol_exec, send message!");
                 handle->sn_coap_tx_callback(stored_msg_ptr->send_msg_ptr.packet_ptr,
                         stored_msg_ptr->send_msg_ptr.packet_len, &stored_msg_ptr->send_msg_ptr.dst_addr_ptr, stored_msg_ptr->param);
 
